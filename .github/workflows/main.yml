@@ -1,0 +1,45 @@
+
+name: CI
+on: [push, pull_request]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust: [stable, beta, nightly]
+    steps:
+    - uses: actions/checkout@master
+    - name: Install Rust (rustup)
+      run: rustup update ${{ matrix.rust }} && rustup default ${{ matrix.rust }}
+    - run: cargo test 
+
+  rustfmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: Install Rust
+      run: rustup update stable && rustup default stable && rustup component add rustfmt
+    - run: cargo fmt -- --check
+
+  clippy_check:
+    name: Clippy Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - id: component
+        uses: actions-rs/components-nightly@v1
+        with:
+          component: clippy
+      - uses: actions-rs/toolchain@v1
+        with:
+            toolchain: ${{ steps.component.outputs.toolchain }}
+            override: true
+      - run: rustup component add clippy
+      - uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
+
