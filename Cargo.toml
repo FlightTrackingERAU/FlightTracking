@@ -2,6 +2,8 @@
 name = "flight_tracking_erau_se300"
 version = "0.1.0"
 edition = "2018"
+description = "An app that displays the path of planes through the country of United States"
+license = "MIT"
 
 [dependencies]
 conrod_core = "0.75.0"
