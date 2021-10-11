@@ -2,8 +2,9 @@ use conrod_core::{widget, widget_ids, Colorable, Positionable, Widget};
 use glium::Surface;
 
 mod support;
-
+///Screen's Default Width
 const WIDTH: u32 = 400;
+///Screen's Default Height
 const HEIGHT: u32 = 200;
 
 fn main() {
