@@ -11,18 +11,21 @@ jobs:
         rust: [stable, beta, nightly]
     steps:
     - uses: actions/checkout@master
-    - name: Install Rust (rustup)
-      run: rustup update ${{ matrix.rust }} && rustup default ${{ matrix.rust }}
-    - run: cargo test 
+    - name: Build & Test
+      run: |
+        sudo apt-get install -y libxcb-xfixes0-dev libxcb-shape0-dev
+        rustup update ${{ matrix.rust }} && rustup default ${{ matrix.rust }}
+        cargo test 
 
   rustfmt:
     name: Rustfmt
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@master
-    - name: Install Rust
-      run: rustup update stable && rustup default stable && rustup component add rustfmt
-    - run: cargo fmt -- --check
+    - name: Rustfmt Check
+      run: |
+        rustup update stable && rustup default stable && rustup component add rustfmt
+        cargo fmt -- --check
 
   clippy_check:
     name: Clippy Check
