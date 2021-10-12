@@ -1,7 +1,9 @@
 use conrod_core::{widget, widget_ids, Colorable, Positionable, Widget};
 use glium::Surface;
 
+mod map;
 mod support;
+mod util;
 
 const WIDTH: u32 = 400;
 const HEIGHT: u32 = 200;
