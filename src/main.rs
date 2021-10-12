@@ -9,10 +9,7 @@ const WIDTH: u32 = 400;
 const HEIGHT: u32 = 200;
 
 fn main() {
-    // Create our UI's event loop
     let event_loop = glium::glutin::event_loop::EventLoop::new();
-
-    // Build the window
     let window = glium::glutin::window::WindowBuilder::new()
         .with_title("Conrod Window")
         .with_inner_size(glium::glutin::dpi::LogicalSize::new(WIDTH, HEIGHT));

@@ -1,7 +1,12 @@
 [package]
-name = "flight_tracking"
-version = "0.1.0"
+name = "flight_tracking_erau_se300"
+version = "0.1.1"
 edition = "2018"
+readme = "README.md"
+repository = "https://github.com/TroyNeubauer/FlightTracking"
+documentation = "https://docs.rs/flight_tracking_erau_se300"
+description = "An app that displays the path of planes through the country of United States"
+license = "MIT"
 
 [dependencies]
 conrod_core = "0.75.0"
