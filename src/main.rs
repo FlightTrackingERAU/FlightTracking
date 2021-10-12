@@ -2,11 +2,15 @@ use conrod_core::{widget, widget_ids, Colorable, Positionable, Widget};
 use glium::Surface;
 
 mod map;
+mod map_renderer;
+
 mod support;
 mod util;
 
 const WIDTH: u32 = 400;
 const HEIGHT: u32 = 200;
+
+widget_ids!(pub struct Ids { fps_logger, text, viewport, squares[], square_text[] });
 
 fn main() {
     let event_loop = glium::glutin::event_loop::EventLoop::new();
@@ -20,30 +24,26 @@ fn main() {
 
     let display = glium::Display::new(window, context, &event_loop).unwrap();
 
-    // Construct our "UI" to hold our widgets/primitives
     let mut ui = conrod_core::UiBuilder::new([WIDTH as f64, HEIGHT as f64]).build();
 
-    // Generate our widget identifiers
-    widget_ids!(struct Ids { fps_logger, text });
-    let ids = Ids::new(ui.widget_id_generator());
+    let mut ids = Ids::new(ui.widget_id_generator());
 
-    // Add the NotoSans font from the file
     let assets = find_folder::Search::KidsThenParents(3, 5)
         .for_folder("assets")
         .unwrap();
+
     let font_path = assets.join("fonts/NotoSans/NotoSans-Regular.ttf");
     ui.fonts.insert_from_file(font_path).unwrap();
 
-    // A type used for converting `conrod_core::render::Primitives` into `Command`s that can be used
-    // for drawing to the glium `Surface`.
     let mut renderer = conrod_glium::Renderer::new(&display).unwrap();
 
-    // The image map describing each of our widget->image mappings (in our case, none).
     let image_map = conrod_core::image::Map::<glium::texture::Texture2d>::new();
 
     let mut last_time = std::time::Instant::now();
     let mut frame_time_ms = 0.0;
     let mut should_update_ui = true;
+    let viewer = map::TileView::new(0.0, 0.0, 2.0, 1080 / 2);
+
     event_loop.run(move |event, _, control_flow| {
         // Break from the loop upon `Escape` or closed window.
         if let glium::glutin::event::Event::WindowEvent { event, .. } = &event {
@@ -95,12 +95,14 @@ fn main() {
                         .font_size(12)
                         .set(ids.fps_logger, ui);
 
+                    map_renderer::draw(&viewer, &mut ids, ui);
+
                     // Request redraw if the `Ui` has changed.
                     display.gl_window().window().request_redraw();
                 }
             }
             glium::glutin::event::Event::RedrawRequested(_) => {
-                // Draw the `Ui` if it has changed.
+                //render and swap buffers
                 let primitives = ui.draw();
 
                 renderer.fill(&display, primitives, &image_map);

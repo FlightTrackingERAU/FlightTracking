@@ -1,4 +1,4 @@
-use glam::DVec2;
+use glam::{DVec2, IVec2};
 use itertools::Itertools;
 use std::convert::TryInto;
 use std::ops::Range;
@@ -8,8 +8,15 @@ use std::ops::Range;
 /// 0 = Whole world is visible
 pub type TileZoomLevel = u32;
 
-/// The coordinates of a 2d map tile with the mercator projection
 pub type TileCoordinate = (u32, u32);
+
+/// The coordinates of a 2d map tile with the mercator projection
+pub struct Tile {
+    top_left: DVec2,
+    bottom_right: DVec2,
+    x: u32,
+    y: u32,
+}
 
 pub struct TileView {
     /// The center of the view in degrees of longitude, and latitude
@@ -93,6 +100,8 @@ impl TileView {
 
         if top_left.x < -180.0 {
             top_left.x += 360.0;
+        } else if top_left.x > 180.0 {
+            top_left.x %= 180.0;
         }
 
         let min = DVec2::new(-180.0, 90.0);
@@ -120,14 +129,18 @@ impl TileView {
             product: (first_x..(first_x + tiles_wide))
                 .cartesian_product(first_y..first_y + tiles_high),
             max_tile,
+            tile_offset: todo!(),
+            tile_size: todo!(),
         }
     }
 }
 
+/// Rounds a number down to the nearest multiple of `modulo`
 pub fn modulo_floor(val: f64, modulo: f64) -> f64 {
-    return val - (val.rem_euclid(modulo));
+    val - (val.rem_euclid(modulo))
 }
 
+/// Rounds a number up to the nearest multiple of `modulo`
 pub fn modulo_ceil(val: f64, modulo: f64) -> f64 {
     if val % modulo == 0.0 {
         val
@@ -150,6 +163,13 @@ fn px_to_longitude_from_zoom(zoom: f64, window_width: u32) -> f64 {
 pub struct TileViewIterator {
     product: itertools::Product<Range<u32>, Range<u32>>,
     max_tile: u32,
+
+    /// The pixel offset between the top left corner of the viewpoint and the top left corner of the
+    /// topmost, leftmost tile
+    pub tile_offset: DVec2,
+
+    /// The size of a tile in pixels based on the current zoom
+    pub tile_size: DVec2,
 }
 
 impl Iterator for TileViewIterator {

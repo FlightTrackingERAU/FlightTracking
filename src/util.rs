@@ -1,3 +1,8 @@
+//! Various utilities for commonly needed things.
+//!
+//! Currently thin contains functions for interpolation, normalization, and mapping one rang of
+//! values to another
+
 pub fn lerp<T, F>(a: T, b: T, f: F) -> T
 where
     T: Copy,
@@ -6,7 +11,7 @@ where
     T: std::ops::Mul<F, Output = T>,
 {
     //Convert the 0-1 range into a value in the right range.
-    return a + ((b - a) * f);
+    a + ((b - a) * f)
 }
 
 pub fn normalize<T, F>(a: T, b: T, value: T) -> F
@@ -15,7 +20,7 @@ where
     T: std::ops::Sub<Output = T>,
     T: std::ops::Div<Output = F>,
 {
-    return (value - a) / (b - a);
+    (value - a) / (b - a)
 }
 
 pub fn map<S, D, F>(left_min: S, left_max: S, value: S, right_min: D, right_max: D) -> D
