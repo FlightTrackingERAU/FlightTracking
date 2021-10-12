@@ -113,7 +113,7 @@ impl TileView {
 
         if num_tiles_x != 0 {
             assert_eq!(num_tiles_x, tiles_wide);
-        } 
+        }
 
         //We have all the values to make the iterator
         TileViewIterator {
