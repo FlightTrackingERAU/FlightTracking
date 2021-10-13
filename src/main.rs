@@ -1,10 +1,19 @@
-use conrod_core::{widget, widget_ids, Colorable, Positionable, Widget};
+#[macro_use]
+extern crate conrod_core;
+extern crate conrod_glium;
+#[macro_use]
+extern crate conrod_winit;
+extern crate find_folder;
+extern crate glium;
+use button_widget::Circular_Button;
+use conrod_core::{widget, Colorable, Labelable, Positionable, Sizeable, Widget};
 use glium::Surface;
 
+mod button_widget;
 mod support;
 
 const WIDTH: u32 = 400;
-const HEIGHT: u32 = 200;
+const HEIGHT: u32 = 400;
 
 fn main() {
     // Create our UI's event loop
@@ -25,7 +34,7 @@ fn main() {
     let mut ui = conrod_core::UiBuilder::new([WIDTH as f64, HEIGHT as f64]).build();
 
     // Generate our widget identifiers
-    widget_ids!(struct Ids { text });
+    widget_ids!(struct Ids {circle_button});
     let ids = Ids::new(ui.widget_id_generator());
 
     // Add the NotoSans font from the file
@@ -33,11 +42,12 @@ fn main() {
         .for_folder("assets")
         .unwrap();
     let font_path = assets.join("fonts/NotoSans/NotoSans-Regular.ttf");
-    ui.fonts.insert_from_file(font_path).unwrap();
 
     // A type used for converting `conrod_core::render::Primitives` into `Command`s that can be used
     // for drawing to the glium `Surface`.
     let mut renderer = conrod_glium::Renderer::new(&display).unwrap();
+
+    let regular = ui.fonts.insert_from_file(font_path).unwrap();
 
     // The image map describing each of our widget->image mappings (in our case, none).
     let image_map = conrod_core::image::Map::<glium::texture::Texture2d>::new();
@@ -76,12 +86,19 @@ fn main() {
                     // Set the widgets.
                     let ui = &mut ui.set_widgets();
 
-                    // "Hello World!" in the middle of the screen.
-                    widget::Text::new("SE 300")
-                        .middle_of(ui.window)
+                    for _clicks in Circular_Button::new()
                         .color(conrod_core::color::WHITE)
-                        .font_size(32)
-                        .set(ids.text, ui);
+                        .middle()
+                        .w_h(256.0, 256.0)
+                        .label_font_id(regular)
+                        .label_color(conrod_core::color::WHITE)
+                        .label("Circular Button")
+                        // Add the widget to the conrod_core::Ui. This schedules the widget it to be
+                        // drawn when we call Ui::draw.
+                        .set(ids.circle_button, ui)
+                    {
+                        println!("Dr.T is awesome");
+                    }
 
                     // Request redraw if the `Ui` has changed.
                     display.gl_window().window().request_redraw();
