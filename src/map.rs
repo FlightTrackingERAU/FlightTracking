@@ -351,19 +351,4 @@ mod tests {
             y_len: 2,
         });
     }
-
-    #[test]
-    fn test_modulo_floor() {
-        assert_eq!(modulo_floor(4.5, 2.0), 4.0);
-        assert_eq!(modulo_floor(55.0, 10.0), 50.0);
-        assert_eq!(modulo_floor(4.5, 2.0), 4.0);
-        assert_eq!(modulo_floor(-4.5, 2.0), -6.0);
-    }
-
-    #[test]
-    fn test_modulo_ceil() {
-        assert_eq!(modulo_ceil(4.5, 2.0), 6.0);
-        assert_eq!(modulo_ceil(55.0, 10.0), 60.0);
-        assert_eq!(modulo_ceil(4.5, 1.5), 4.5);
-    }
 }
