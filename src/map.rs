@@ -10,33 +10,32 @@ pub type TileZoomLevel = u32;
 
 pub type TileCoordinate = (u32, u32);
 
-/// The coordinates of a 2d map tile with the mercator projection
-pub struct Tile {
-    top_left: DVec2,
-    bottom_right: DVec2,
-    x: u32,
-    y: u32,
-}
-
 pub struct TileView {
-    /// The center of the view in degrees of longitude, and latitude
+    /// The center of the view [0..1] for both x and y
     ///
-    /// Note: This format is [x (longitude), y (latitude)] NOT [latitude, longitude]
+    /// (0, 0) is the north pole near alaska and (1, 1) is the south pole left of the anti meridian.
+    /// Using this system, the coordinates map neatly onto tile coordinates that use a spherical
+    /// mercator projection
     center: DVec2,
 
-    /// The size of each pixel in terms of degrees of latitude
+    /// The size of each pixel in terms of the world units used by `center`
     ///
+    /// A size of one means that each pixel contains all the tiles in the whole world.
     /// We use this format instead of lets say storing the coordinates of opposite corners so that
     /// the window can be resized and the center will stay in the center, and the zoom level will
     /// remain the same
-    px_to_longitude: f64,
+    pixel_size: f64,
 }
 
 impl TileView {
     pub fn new(latitude: f64, longitude: f64, zoom: f64, window_width: u32) -> Self {
+        let x = crate::util::map(-180.0, 180.0, longitude, 0.0, 1.0);
+        //TODO: Convert latitude properly, accounting for mercator stretching near the poles
+        let y = crate::util::map(90.0, -90.0, latitude, 0.0, 1.0);
+        println!("lng: {}, lat {}, to [{}, {}]", longitude, latitude, x, y);
         Self {
-            center: DVec2::new(longitude, latitude),
-            px_to_longitude: px_to_longitude_from_zoom(zoom, window_width),
+            center: DVec2::new(x, y),
+            pixel_size: pixel_size_from_zoom(zoom, window_width),
         }
     }
 
@@ -45,13 +44,13 @@ impl TileView {
     /// The zoom level is always rounded up so that pixels on a tile are always smaller physical pixels
     /// (no low quality interpolation needed)
     pub fn tile_zoom_level(&self, tile_size: u32) -> TileZoomLevel {
-        //px = (360 / 2^zoom) / tile_size -> from px_to_latitude_from_zoom
-        //px * tile_size = 360/ 2^zoom
-        //px * tile_size * 2^zoom = 360
-        //2^zoom = 360 / (px * tile_size)
-        //zoom = log_2(360 / px * tile_size)
+        //px = (1 / 2^zoom) / tile_size -> from pixel_size_from_zoom
+        //px * tile_size = 1 / 2^zoom
+        //px * tile_size * 2^zoom = 1
+        //2^zoom = 1 / (px * tile_size)
+        //zoom = log_2(1 / px * tile_size)
 
-        let zoom = f64::log2(360f64 / (self.px_to_longitude * tile_size as f64)).ceil();
+        let zoom = f64::log2(1f64 / (self.pixel_size * tile_size as f64)).ceil();
         //Convert to i64 first so that we can use try from here
         //Somehow there is no impl TryInto<i64> for f64 or TryInto<u32> for f64
         (zoom as i64)
@@ -63,7 +62,7 @@ impl TileView {
     /// The value returned by [`tile_zoom_level`] will always at least as big as `zoom` for a
     /// window larger then the tile size, because more tiles are needed to span the entire window
     pub fn set_zoom(&mut self, zoom: f64, window_width: u32) {
-        self.px_to_longitude = px_to_longitude_from_zoom(zoom, window_width);
+        self.pixel_size = pixel_size_from_zoom(zoom, window_width);
     }
 
     pub fn tile_iter(
@@ -76,61 +75,65 @@ impl TileView {
         let tile_size = tile_size as f64;
         let max_tile = 2u32.pow(tile_zoom);
 
+        //The minimum number of full size tiles needed to fill a screen
         let tiles_wide = (screen_width as f64 / tile_size as f64).ceil() as u32;
         let tiles_high = (screen_height as f64 / tile_size as f64).ceil() as u32;
 
-        // Each pixel is twice as wide as it is tall because of the mercator projection spanning
-        // 360 degrees wide but only 180 degrees tall
-        let px_to_latitude = self.px_to_longitude / 2.0;
-        let px_to_longitude = self.px_to_longitude;
-        //TODO: Use real trig below to make up for the * 2 above to make lines of latitude near the
-        //poles map correctly
-
-        //Compute the number of degrees (longitude, latitude) that spans the distance from the top
-        //left of the screen to the certes of the screen
+        //Compute the size of half the screen in terms of world coordinates
         let half_screen_size = DVec2::new(
-            screen_width as f64 * px_to_longitude,
-            screen_height as f64 * px_to_latitude,
+            screen_width as f64 * self.pixel_size,
+            screen_height as f64 * self.pixel_size,
         ) / 2.0;
 
-        //Calculate where the top left and bottom right of our viewport is units of degrees
-        let adjusted_half_screen_size = DVec2::new(half_screen_size.x, -half_screen_size.y);
+        //Calculate where the top left and bottom right of our viewport is world coordinates
+        let adjusted_half_screen_size = DVec2::new(half_screen_size.x, half_screen_size.y);
         let mut top_left = self.center - adjusted_half_screen_size;
-        let bottom_right = self.center + adjusted_half_screen_size;
+        let mut bottom_right = self.center + adjusted_half_screen_size;
 
-        if top_left.x < -180.0 {
-            top_left.x += 360.0;
-        } else if top_left.x > 180.0 {
-            top_left.x %= 180.0;
-        }
+        top_left.x = top_left.x.rem_euclid(1.0);
+        top_left.y = top_left.y.rem_euclid(1.0);
 
-        let min = DVec2::new(-180.0, 90.0);
-        let max = DVec2::new(180.0, -90.0);
+        bottom_right.x = bottom_right.x.rem_euclid(1.0);
+        bottom_right.y = bottom_right.y.rem_euclid(1.0);
 
-        let dest_min = DVec2::new(0.0, 0.0);
+        println!("top {}, bottom {}", top_left, bottom_right);
+
         let dest_max = DVec2::new(max_tile as f64, max_tile as f64);
 
-        //Next map the degree coordinates to tile coordinates (0..max_tile)
-        let top_left_tiles = crate::util::map(min, max, top_left, dest_min, dest_max);
-        let bottom_right_tiles = crate::util::map(min, max, bottom_right, dest_min, dest_max);
+        //Next map world coordinates to tile coordinates (0..1) to (0..max_tile)
+        let top_left_tiles = top_left * dest_max;
+        let bottom_right_tiles = bottom_right * dest_max;
 
         //Floor and ceil to render all tiles that are even partially visible
         let first_x = top_left_tiles.x.floor() as u32;
         let first_y = top_left_tiles.y.floor() as u32;
+        println!("first_x {}, first_y {}", first_x, first_y);
 
-        let num_tiles_x = (bottom_right_tiles.x.ceil() - top_left_tiles.x.floor()) as u32;
+        //Tile size is the size of a tile in pixels based on the current zoom level
+        //We know how large each pixel should be in world coordinates, and how big the tile should
+        //be in world coordinates. Use one to calculate the other
 
-        if num_tiles_x != 0 {
-            assert_eq!(num_tiles_x, tiles_wide);
-        }
+        //Units are world units (aka 1/(tile units))
+        let tile_length = 1.0 / max_tile as f64;
+        let tile_size_world = DVec2::new(tile_length, tile_length);
+
+        //`self.pixel_size` units are (world/pixel), so inv is (pixel/world)
+        let inv_pixel_size = DVec2::new(1.0, 1.0) / self.pixel_size;
+
+        //If we multiply tile_size_world with inv_pixel_size the units are:
+        //(pixel/world) * (world/1) -> pixel
+        let tile_size = tile_size_world * inv_pixel_size;
 
         //We have all the values to make the iterator
         TileViewIterator {
             product: (first_x..(first_x + tiles_wide))
                 .cartesian_product(first_y..first_y + tiles_high),
             max_tile,
-            tile_offset: todo!(),
-            tile_size: todo!(),
+            tile_offset: DVec2::new(0.0, 0.0),
+
+            tile_size,
+            tiles_horizontally: tiles_wide,
+            tiles_vertically: tiles_high,
         }
     }
 }
@@ -149,13 +152,13 @@ pub fn modulo_ceil(val: f64, modulo: f64) -> f64 {
     }
 }
 
-/// Converts a zoom level and the current window size to a `px_to_latitude` value.
-fn px_to_longitude_from_zoom(zoom: f64, window_width: u32) -> f64 {
-    //Use zoom to calculate how wide the window is in terms of degrees of longitude
-    let latitude_width: f64 = 360f64 / 2f64.powf(zoom);
+/// Converts a zoom level and the current window size to a `pixel_size` value.
+fn pixel_size_from_zoom(zoom: f64, window_width: u32) -> f64 {
+    //Use zoom to calculate how wide the window is in world units (zoom level 0 = whole world)
+    let window_size: f64 = 1.0 / 2f64.powf(zoom);
 
     // Divide by the number of pixels to get the number of degrees per pixel
-    latitude_width / window_width as f64
+    window_size / window_width as f64
 }
 
 /// Walks the positions of all the tiles currently in view, returning their coordinates for
@@ -170,6 +173,12 @@ pub struct TileViewIterator {
 
     /// The size of a tile in pixels based on the current zoom
     pub tile_size: DVec2,
+
+    /// The number of tiles to render horizontally
+    pub tiles_horizontally: u32,
+
+    /// The number of tiles to render vertically
+    pub tiles_vertically: u32,
 }
 
 impl Iterator for TileViewIterator {
@@ -210,19 +219,27 @@ mod tests {
         let b = data.y_start..(data.y_start + data.y_len);
 
         let product = a.cartesian_product(b);
-        let expected: Vec<TileCoordinate> = TileViewIterator { product, max_tile }.collect();
+        let expected: Vec<TileCoordinate> = TileViewIterator {
+            product,
+            max_tile,
+            tile_offset: DVec2::new(0.0, 0.0),
+            tile_size: DVec2::new(0.0, 0.0),
+            tiles_horizontally: data.x_len,
+            tiles_vertically: data.y_start,
+        }
+        .collect();
         assert_eq!(real, expected);
     }
 
     #[test]
-    fn px_to_latitude_from_zoom_test() {
+    fn pixel_size_from_zoom_test() {
         //Zoom level 0 is the entire world and if we have one pixel then width then each pixel should
         //be the entire world
-        assert_eq!(px_to_longitude_from_zoom(0.0, 1), 360.0);
+        assert_eq!(pixel_size_from_zoom(0.0, 1), 1.0);
 
         // At zoom=1 half of the world is visible horizontally,
-        // and if we have 10 pixels then each pixel should be 18 degrees
-        assert_eq!(px_to_longitude_from_zoom(1.0, 10), 18.0);
+        // and if we have 10 pixels then each pixel should be 1/2 * 1/10 == 0.05
+        assert_eq!(pixel_size_from_zoom(1.0, 10), 0.05);
     }
 
     #[test]
@@ -249,6 +266,10 @@ mod tests {
         let mut it = TileViewIterator {
             product: (0..2).cartesian_product(0..2),
             max_tile: 2,
+            tile_offset: DVec2::new(0.0, 0.0),
+            tile_size: DVec2::new(0.0, 0.0),
+            tiles_horizontally: 0,
+            tiles_vertically: 0,
         };
         assert_eq!(it.next(), Some((0, 0)));
         assert_eq!(it.next(), Some((0, 1)));

@@ -8,6 +8,9 @@ pub fn draw(view: &crate::map::TileView, ids: &mut crate::Ids, ui: &mut UiCell) 
     let size = it.tile_size;
     let offset = it.tile_offset;
 
+    let tiles_vertically = it.tiles_vertically;
+    let tiles_horizontally = it.tiles_horizontally;
+
     let tiles: Vec<_> = it.collect();
 
     Canvas::new().pad(0.0).set(ids.viewport, ui);
@@ -16,13 +19,17 @@ pub fn draw(view: &crate::map::TileView, ids: &mut crate::Ids, ui: &mut UiCell) 
         .resize(tiles.len(), &mut ui.widget_id_generator());
     ids.square_text
         .resize(tiles.len(), &mut ui.widget_id_generator());
+
     for (i, tile) in tiles.into_iter().enumerate() {
         let id = ids.squares[i];
-        Rectangle::outline(size.to_array())
-            .top_left_of(ids.viewport)
-            .set(id, ui);
+        let tile_x = i / tiles_vertically as usize;
+        let tile_y = i % tiles_vertically as usize;
 
-        let text = format!("TEST",);
+        let x = offset.x + tile_x as f64 * size.x;
+        let y = offset.y - (tile_y as f64 * size.y);
+        Rectangle::outline(size.to_array()).x(x).y(y).set(id, ui);
+
+        let text = format!("[{}, {}]", tile.0, tile.1);
         Text::new(text.as_str())
             .xy_relative([0.0, 0.0])
             .color(conrod_core::color::WHITE)
