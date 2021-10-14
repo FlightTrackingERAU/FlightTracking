@@ -72,12 +72,22 @@ impl TileView {
         screen_height: u32,
     ) -> TileViewIterator {
         let tile_zoom = self.tile_zoom_level(tile_size);
-        let tile_size = tile_size as f64;
         let max_tile = 2u32.pow(tile_zoom);
 
-        //The minimum number of full size tiles needed to fill a screen
-        let tiles_wide = (screen_width as f64 / tile_size as f64).ceil() as u32;
-        let tiles_high = (screen_height as f64 / tile_size as f64).ceil() as u32;
+        //Tile size is the size of a tile in pixels based on the current zoom level
+        //We know how large each pixel should be in world coordinates, and how big the tile should
+        //be in world coordinates. Use one to calculate the other
+
+        //Units are world units (aka 1/(tile units))
+        let tile_length = 1.0 / max_tile as f64;
+        let tile_size_world = DVec2::new(tile_length, tile_length);
+
+        //`self.pixel_size` units are (world/pixel), so inv is (pixel/world)
+        let inv_pixel_size = DVec2::new(1.0, 1.0) / self.pixel_size;
+
+        //If we multiply tile_size_world with inv_pixel_size the units are:
+        //(pixel/world) * (world/1) -> pixel
+        let tile_size = tile_size_world * inv_pixel_size;
 
         //Compute the size of half the screen in terms of world coordinates
         let half_screen_size = DVec2::new(
@@ -105,32 +115,27 @@ impl TileView {
         let bottom_right_tiles = bottom_right * dest_max;
 
         //Floor and ceil to render all tiles that are even partially visible
-        let first_x = top_left_tiles.x.floor() as u32;
-        let first_y = top_left_tiles.y.floor() as u32;
-        println!("first_x {}, first_y {}", first_x, first_y);
+        let first_offset = top_left_tiles % DVec2::new(1.0, 1.0);
 
-        //Tile size is the size of a tile in pixels based on the current zoom level
-        //We know how large each pixel should be in world coordinates, and how big the tile should
-        //be in world coordinates. Use one to calculate the other
+        let first_x = (top_left_tiles.x - first_offset.x) as u32;
+        let first_y = (top_left_tiles.y - first_offset.y) as u32;
+        println!("First offset: {}, size {}", first_offset, tile_size);
 
-        //Units are world units (aka 1/(tile units))
-        let tile_length = 1.0 / max_tile as f64;
-        let tile_size_world = DVec2::new(tile_length, tile_length);
-
-        //`self.pixel_size` units are (world/pixel), so inv is (pixel/world)
-        let inv_pixel_size = DVec2::new(1.0, 1.0) / self.pixel_size;
-
-        //If we multiply tile_size_world with inv_pixel_size the units are:
-        //(pixel/world) * (world/1) -> pixel
-        let tile_size = tile_size_world * inv_pixel_size;
+        let (tiles_wide, tiles_high) = {
+            if top_left.x < bottom_right.x {
+                let diff = bottom_right_tiles - top_left_tiles;
+                (diff.x.ceil() as u32 + 1, diff.y.ceil() as u32 + 2)
+            } else {
+                panic!("Wraparound x not implemented");
+            }
+        };
 
         //We have all the values to make the iterator
         TileViewIterator {
             product: (first_x..(first_x + tiles_wide))
                 .cartesian_product(first_y..first_y + tiles_high),
             max_tile,
-            tile_offset: DVec2::new(0.0, 0.0),
-
+            tile_offset: DVec2::new(-first_offset.x, first_offset.y) * tile_size,
             tile_size,
             tiles_horizontally: tiles_wide,
             tiles_vertically: tiles_high,

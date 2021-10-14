@@ -20,13 +20,19 @@ pub fn draw(view: &crate::map::TileView, ids: &mut crate::Ids, ui: &mut UiCell) 
     ids.square_text
         .resize(tiles.len(), &mut ui.widget_id_generator());
 
+    // The conrod coordinate system places 0, 0 in the center of the window. Up is the positive y
+    // axis, and right is the positive x axis.
+    // The units are in terms of screen pixels, so on a window with a size of 1000x500 the point
+    // (500, 250) would be the top right corner
     for (i, tile) in tiles.into_iter().enumerate() {
         let id = ids.squares[i];
         let tile_x = i / tiles_vertically as usize;
         let tile_y = i % tiles_vertically as usize;
 
-        let x = offset.x + tile_x as f64 * size.x;
-        let y = offset.y - (tile_y as f64 * size.y);
+        let half_width = ui.win_w / 2.0;
+        let half_height = ui.win_h / 2.0;
+        let x = offset.x + tile_x as f64 * size.x - half_width + size.x / 2.0;
+        let y = offset.y - (tile_y as f64 * size.y) + half_height + size.y / 2.0;
         Rectangle::outline(size.to_array()).x(x).y(y).set(id, ui);
 
         let text = format!("[{}, {}]", tile.0, tile.1);
