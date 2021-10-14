@@ -1,4 +1,5 @@
 use conrod_core::{widget, widget_ids, Colorable, Positionable, Widget};
+use glam::DVec2;
 use glium::Surface;
 
 mod map;
@@ -42,22 +43,53 @@ fn main() {
     let mut last_time = std::time::Instant::now();
     let mut frame_time_ms = 0.0;
     let mut should_update_ui = true;
-    let viewer = map::TileView::new(0.0, 0.0, 2.0, 1080 / 2);
+    let mut viewer = map::TileView::new(0.0, 0.0, 2.0, 1080 / 2);
+    let mut last_cursor_pos: Option<DVec2> = None;
+    let mut left_pressed = false;
 
     event_loop.run(move |event, _, control_flow| {
+        use glium::glutin::event::{
+            ElementState, Event, MouseButton, MouseScrollDelta, VirtualKeyCode, WindowEvent,
+        };
         // Break from the loop upon `Escape` or closed window.
-        if let glium::glutin::event::Event::WindowEvent { event, .. } = &event {
+        if let Event::WindowEvent { event, .. } = &event {
             match event {
                 // Break from the loop upon `Escape`.
-                glium::glutin::event::WindowEvent::CloseRequested
-                | glium::glutin::event::WindowEvent::KeyboardInput {
+                WindowEvent::CloseRequested
+                | WindowEvent::KeyboardInput {
                     input:
                         glium::glutin::event::KeyboardInput {
-                            virtual_keycode: Some(glium::glutin::event::VirtualKeyCode::Escape),
+                            virtual_keycode: Some(VirtualKeyCode::Escape),
                             ..
                         },
                     ..
                 } => *control_flow = glium::glutin::event_loop::ControlFlow::Exit,
+                WindowEvent::MouseWheel { delta, .. } => {
+                    let zoom_change = match delta {
+                        MouseScrollDelta::LineDelta(_x, y) => *y as f64,
+                        MouseScrollDelta::PixelDelta(data) => data.y / 100.0,
+                    };
+                    let zoom_change = (-zoom_change / 6.0).clamp(-0.5, 0.5);
+                    println!("change {}", zoom_change);
+                    viewer.multiply_zoom(1.0 + zoom_change);
+                }
+                WindowEvent::CursorMoved { position, .. } => {
+                    let position = DVec2::new(position.x, position.y);
+                    if let Some(last) = last_cursor_pos {
+                        let delta = (last - position).clamp_length_max(300.0);
+                        if left_pressed {
+                            println!("Delta {}", delta);
+                            viewer.move_camera_pixels(delta);
+                        }
+                    }
+
+                    last_cursor_pos = Some(position);
+                }
+                WindowEvent::MouseInput { button, state, .. } => {
+                    if matches!(button, MouseButton::Left) {
+                        left_pressed = matches!(state, ElementState::Pressed);
+                    }
+                }
                 _ => {}
             }
         }
@@ -94,6 +126,13 @@ fn main() {
                         .justify(conrod_core::text::Justify::Right)
                         .font_size(12)
                         .set(ids.fps_logger, ui);
+
+                    let frame_time_sec = frame_time_ms / 1000.0;
+                    /*viewer.multiply_zoom(1.0 - frame_time_sec * 0.5);
+                    viewer.move_camera_pixels(DVec2::new(
+                        frame_time_sec * 10.0,
+                        frame_time_sec * 3.0,
+                    ));*/
 
                     map_renderer::draw(&viewer, &mut ids, ui);
 

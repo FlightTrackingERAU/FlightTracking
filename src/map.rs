@@ -1,4 +1,4 @@
-use glam::{DVec2, IVec2};
+use glam::DVec2;
 use itertools::Itertools;
 use std::convert::TryInto;
 use std::ops::Range;
@@ -32,7 +32,6 @@ impl TileView {
         let x = crate::util::map(-180.0, 180.0, longitude, 0.0, 1.0);
         //TODO: Convert latitude properly, accounting for mercator stretching near the poles
         let y = crate::util::map(90.0, -90.0, latitude, 0.0, 1.0);
-        println!("lng: {}, lat {}, to [{}, {}]", longitude, latitude, x, y);
         Self {
             center: DVec2::new(x, y),
             pixel_size: pixel_size_from_zoom(zoom, window_width),
@@ -63,6 +62,18 @@ impl TileView {
     /// window larger then the tile size, because more tiles are needed to span the entire window
     pub fn set_zoom(&mut self, zoom: f64, window_width: u32) {
         self.pixel_size = pixel_size_from_zoom(zoom, window_width);
+    }
+
+    pub fn multiply_zoom(&mut self, multiplier: f64) {
+        self.pixel_size *= multiplier;
+    }
+
+    /// Moves the camera for this map view based on `direction`.
+    ///
+    /// The units are current screen pixels based on the current zoom level.
+    /// Visually this will move the camera the same amount regardless of the zoom. 
+    pub fn move_camera_pixels(&mut self, direction: DVec2) {
+        self.center += direction * self.pixel_size;
     }
 
     pub fn tile_iter(
@@ -106,8 +117,6 @@ impl TileView {
         bottom_right.x = bottom_right.x.rem_euclid(1.0);
         bottom_right.y = bottom_right.y.rem_euclid(1.0);
 
-        println!("top {}, bottom {}", top_left, bottom_right);
-
         let dest_max = DVec2::new(max_tile as f64, max_tile as f64);
 
         //Next map world coordinates to tile coordinates (0..1) to (0..max_tile)
@@ -119,7 +128,6 @@ impl TileView {
 
         let first_x = (top_left_tiles.x - first_offset.x) as u32;
         let first_y = (top_left_tiles.y - first_offset.y) as u32;
-        println!("First offset: {}, size {}", first_offset, tile_size);
 
         let (tiles_wide, tiles_high) = {
             if top_left.x < bottom_right.x {
