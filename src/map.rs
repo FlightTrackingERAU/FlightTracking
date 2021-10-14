@@ -124,8 +124,8 @@ impl TileView {
         let top_left_world = self.center - adjusted_half_screen_size;
         let bottom_right_world = self.center + adjusted_half_screen_size;
 
-        let top_left = DVec2::new(top_left_world.x, top_left_world.y.rem_euclid(1.0));
-        let bottom_right = DVec2::new(bottom_right_world.x, bottom_right_world.y.rem_euclid(1.0));
+        let top_left = DVec2::new(top_left_world.x.rem_euclid(1.0), top_left_world.y.rem_euclid(1.0));
+        let bottom_right = DVec2::new(bottom_right_world.x.rem_euclid(1.0), bottom_right_world.y.rem_euclid(1.0));
 
         let dest_max = DVec2::new(max_tile as f64, max_tile as f64);
 
@@ -229,7 +229,7 @@ mod tests {
         y_len: u32,
     }
 
-    fn is_same_tiles(data: IsSameTiles) {
+    fn are_tiles_visible(data: IsSameTiles) {
         let real_iter = data
             .view
             .tile_iter(data.tile_size, data.screen_width, data.screen_height);
@@ -241,7 +241,7 @@ mod tests {
         let b = data.y_start..(data.y_start + data.y_len);
 
         let product = a.cartesian_product(b);
-        let expected: Vec<TileCoordinate> = TileViewIterator {
+        let mut expected: Vec<TileCoordinate> = TileViewIterator {
             product,
             max_tile,
             tile_offset: DVec2::new(0.0, 0.0),
@@ -250,7 +250,16 @@ mod tests {
             tiles_vertically: data.y_start,
         }
         .collect();
-        assert_eq!(real, expected);
+        for rendered in &real {
+            // Retain all the elements except the one we rendered
+            expected.retain(|e| e != rendered);
+        }
+        
+        if expected.len() != 0 {
+            println!("Rendered tiles are: {:?}", real);
+            panic!("Tiles {:?} not rendered!", expected);
+        }
+        
     }
 
     #[test]
@@ -306,7 +315,7 @@ mod tests {
         let screen_height = 500;
         //Use a tiny bit of zoom to force zoom level 2 to be chosen
         let view = TileView::new(0.0, 0.0, 0.001, screen_width);
-        is_same_tiles(IsSameTiles {
+        are_tiles_visible(IsSameTiles {
             view,
             tile_size: 256,
             screen_width,
@@ -325,15 +334,15 @@ mod tests {
 
         //Use a tiny bit of zoom to force zoom level 2 to be chosen for each tile
         let view = TileView::new(0.0, 0.0, 1.01, screen_width);
-        is_same_tiles(IsSameTiles {
+        are_tiles_visible(IsSameTiles {
             view,
             tile_size: 256,
             screen_width,
             screen_height,
             x_start: 1,
-            x_len: 4,
+            x_len: 2,
             y_start: 1,
-            y_len: 3,
+            y_len: 2,
         });
     }
 
@@ -344,7 +353,7 @@ mod tests {
 
         //Use a tiny bit of zoom to force zoom level 2 to be chosen for each tile
         let view = TileView::new(83.0, -178.0, 4.001, screen_width);
-        is_same_tiles(IsSameTiles {
+        are_tiles_visible(IsSameTiles {
             view,
             tile_size: 256,
             screen_width,
