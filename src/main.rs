@@ -70,7 +70,6 @@ fn main() {
                         MouseScrollDelta::PixelDelta(data) => data.y / 100.0,
                     };
                     let zoom_change = (-zoom_change / 6.0).clamp(-0.5, 0.5);
-                    println!("change {}", zoom_change);
                     viewer.multiply_zoom(1.0 + zoom_change);
                 }
                 WindowEvent::CursorMoved { position, .. } => {
@@ -78,7 +77,6 @@ fn main() {
                     if let Some(last) = last_cursor_pos {
                         let delta = (last - position).clamp_length_max(300.0);
                         if left_pressed {
-                            println!("Delta {}", delta);
                             viewer.move_camera_pixels(delta);
                         }
                     }

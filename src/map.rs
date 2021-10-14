@@ -52,6 +52,9 @@ impl TileView {
         let zoom = f64::log2(1f64 / (self.pixel_size * tile_size as f64)).ceil();
         //Convert to i64 first so that we can use try from here
         //Somehow there is no impl TryInto<i64> for f64 or TryInto<u32> for f64
+        if zoom <= 0.0 {
+            return 0;
+        }
         (zoom as i64)
             .try_into()
             .expect("Zoom level too large for u32")
@@ -61,17 +64,27 @@ impl TileView {
     /// The value returned by [`tile_zoom_level`] will always at least as big as `zoom` for a
     /// window larger then the tile size, because more tiles are needed to span the entire window
     pub fn set_zoom(&mut self, zoom: f64, window_width: u32) {
-        self.pixel_size = pixel_size_from_zoom(zoom, window_width);
+        let new_pixel_size = pixel_size_from_zoom(zoom, window_width);
+        self.pixel_size = new_pixel_size;
     }
 
     pub fn multiply_zoom(&mut self, multiplier: f64) {
-        self.pixel_size *= multiplier;
+        let new_pixel_size = self.pixel_size * multiplier;
+        //Make sure the entire world cannot be smaller that 100 pixels across
+        if new_pixel_size < (1.0 / 100.0) {
+            //Prevent the user from scrolling to where tile coordinates are less that 2^-28
+            //On a normal screen this means you can zoom into about zoom level 20
+            let min_size: f64 = 1.064 / 2.0f64.powi(28);
+            if new_pixel_size > min_size {
+                self.pixel_size = new_pixel_size;
+            }
+        }
     }
 
     /// Moves the camera for this map view based on `direction`.
     ///
     /// The units are current screen pixels based on the current zoom level.
-    /// Visually this will move the camera the same amount regardless of the zoom. 
+    /// Visually this will move the camera the same amount regardless of the zoom.
     pub fn move_camera_pixels(&mut self, direction: DVec2) {
         self.center += direction * self.pixel_size;
     }
@@ -108,14 +121,11 @@ impl TileView {
 
         //Calculate where the top left and bottom right of our viewport is world coordinates
         let adjusted_half_screen_size = DVec2::new(half_screen_size.x, half_screen_size.y);
-        let mut top_left = self.center - adjusted_half_screen_size;
-        let mut bottom_right = self.center + adjusted_half_screen_size;
+        let top_left_world = self.center - adjusted_half_screen_size;
+        let bottom_right_world = self.center + adjusted_half_screen_size;
 
-        top_left.x = top_left.x.rem_euclid(1.0);
-        top_left.y = top_left.y.rem_euclid(1.0);
-
-        bottom_right.x = bottom_right.x.rem_euclid(1.0);
-        bottom_right.y = bottom_right.y.rem_euclid(1.0);
+        let top_left = DVec2::new(top_left_world.x, top_left_world.y.rem_euclid(1.0));
+        let bottom_right = DVec2::new(bottom_right_world.x, bottom_right_world.y.rem_euclid(1.0));
 
         let dest_max = DVec2::new(max_tile as f64, max_tile as f64);
 
@@ -130,12 +140,11 @@ impl TileView {
         let first_y = (top_left_tiles.y - first_offset.y) as u32;
 
         let (tiles_wide, tiles_high) = {
-            if top_left.x < bottom_right.x {
-                let diff = bottom_right_tiles - top_left_tiles;
-                (diff.x.ceil() as u32 + 1, diff.y.ceil() as u32 + 2)
-            } else {
-                panic!("Wraparound x not implemented");
-            }
+            let diff = bottom_right_world - top_left_world;
+            (
+                (diff.x * max_tile as f64).ceil() as u32 + 1,
+                (diff.y * max_tile as f64).ceil() as u32 + 2,
+            )
         };
 
         //We have all the values to make the iterator
@@ -170,7 +179,7 @@ fn pixel_size_from_zoom(zoom: f64, window_width: u32) -> f64 {
     //Use zoom to calculate how wide the window is in world units (zoom level 0 = whole world)
     let window_size: f64 = 1.0 / 2f64.powf(zoom);
 
-    // Divide by the number of pixels to get the number of degrees per pixel
+    // Divide by the number of pixels to get the number of world coordinates per pixel
     window_size / window_width as f64
 }
 
@@ -322,9 +331,9 @@ mod tests {
             screen_width,
             screen_height,
             x_start: 1,
-            x_len: 2,
+            x_len: 4,
             y_start: 1,
-            y_len: 2,
+            y_len: 3,
         });
     }
 
