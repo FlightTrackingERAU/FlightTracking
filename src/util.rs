@@ -38,7 +38,7 @@ where
 
     lerp(right_min, right_max, f)
 }
-
+/*
 pub fn map_clamp<S, D, F, C>(
     left_min: S,
     left_max: S,
@@ -60,3 +60,4 @@ where
     let un_clamped: D = map(left_min, left_max, value, right_min, right_max);
     clamp_fn(&right_max, &right_max, &un_clamped)
 }
+*/

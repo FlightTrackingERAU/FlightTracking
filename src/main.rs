@@ -1,5 +1,5 @@
-use glam::DVec2;
 use conrod_core::{widget, widget_ids, Colorable, Positionable, Sizeable, Widget};
+use glam::DVec2;
 use glium::Surface;
 use maptiler_cloud::{Maptiler, TileRequest};
 
@@ -79,7 +79,7 @@ fn main() {
     }
 
     let assets = find_folder::Search::KidsThenParents(3, 5)
-       .for_folder("assets")
+        .for_folder("assets")
         .unwrap();
 
     let font_path = assets.join("fonts/NotoSans/NotoSans-Regular.ttf");
@@ -177,13 +177,6 @@ fn main() {
                         .font_size(12)
                         .set(ids.fps_logger, ui);
 
-                    let frame_time_sec = frame_time_ms / 1000.0;
-                    /*viewer.multiply_zoom(1.0 - frame_time_sec * 0.5);
-                    viewer.move_camera_pixels(DVec2::new(
-                        frame_time_sec * 10.0,
-                        frame_time_sec * 3.0,
-                    ));*/
-
                     map_renderer::draw(&viewer, &mut ids, ui);
 
                     // Request redraw if the `Ui` has changed.
@@ -255,6 +248,5 @@ async fn load_map_tile(
         &rgba_image.into_raw(),
         image_dimensions,
     );
-    let texture = glium::texture::Texture2d::new(display, raw_image).unwrap();
-    texture
+    glium::texture::Texture2d::new(display, raw_image).unwrap()
 }

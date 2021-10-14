@@ -63,6 +63,7 @@ impl TileView {
     /// Sets the `zoom` for the entire tile viewport based on the current `window_width`.
     /// The value returned by [`tile_zoom_level`] will always at least as big as `zoom` for a
     /// window larger then the tile size, because more tiles are needed to span the entire window
+    #[cfg(test)]
     pub fn set_zoom(&mut self, zoom: f64, window_width: u32) {
         let new_pixel_size = pixel_size_from_zoom(zoom, window_width);
         self.pixel_size = new_pixel_size;
@@ -124,14 +125,15 @@ impl TileView {
         let top_left_world = self.center - adjusted_half_screen_size;
         let bottom_right_world = self.center + adjusted_half_screen_size;
 
-        let top_left = DVec2::new(top_left_world.x.rem_euclid(1.0), top_left_world.y.rem_euclid(1.0));
-        let bottom_right = DVec2::new(bottom_right_world.x.rem_euclid(1.0), bottom_right_world.y.rem_euclid(1.0));
+        let top_left = DVec2::new(
+            top_left_world.x.rem_euclid(1.0),
+            top_left_world.y.rem_euclid(1.0),
+        );
 
         let dest_max = DVec2::new(max_tile as f64, max_tile as f64);
 
         //Next map world coordinates to tile coordinates (0..1) to (0..max_tile)
         let top_left_tiles = top_left * dest_max;
-        let bottom_right_tiles = bottom_right * dest_max;
 
         //Floor and ceil to render all tiles that are even partially visible
         let first_offset = top_left_tiles % DVec2::new(1.0, 1.0);
@@ -157,20 +159,6 @@ impl TileView {
             tiles_horizontally: tiles_wide,
             tiles_vertically: tiles_high,
         }
-    }
-}
-
-/// Rounds a number down to the nearest multiple of `modulo`
-pub fn modulo_floor(val: f64, modulo: f64) -> f64 {
-    val - (val.rem_euclid(modulo))
-}
-
-/// Rounds a number up to the nearest multiple of `modulo`
-pub fn modulo_ceil(val: f64, modulo: f64) -> f64 {
-    if val % modulo == 0.0 {
-        val
-    } else {
-        val + modulo - val.rem_euclid(modulo)
     }
 }
 
@@ -254,12 +242,11 @@ mod tests {
             // Retain all the elements except the one we rendered
             expected.retain(|e| e != rendered);
         }
-        
+
         if expected.len() != 0 {
             println!("Rendered tiles are: {:?}", real);
             panic!("Tiles {:?} not rendered!", expected);
         }
-        
     }
 
     #[test]

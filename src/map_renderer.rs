@@ -4,12 +4,11 @@ use conrod_core::{
 };
 
 pub fn draw(view: &crate::map::TileView, ids: &mut crate::Ids, ui: &mut UiCell) {
-    let mut it = view.tile_iter(256, ui.win_w as u32, ui.win_h as u32);
+    let it = view.tile_iter(256, ui.win_w as u32, ui.win_h as u32);
     let size = it.tile_size;
     let offset = it.tile_offset;
 
     let tiles_vertically = it.tiles_vertically;
-    let tiles_horizontally = it.tiles_horizontally;
 
     let tiles: Vec<_> = it.collect();
 
