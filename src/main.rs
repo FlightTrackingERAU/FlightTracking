@@ -105,7 +105,12 @@ fn main() {
                     // Set the widgets.
                     let ui = &mut ui.set_widgets();
 
-                    CircularButton::image(image_id.normal).set(ids.circular_button, ui);
+                    CircularButton::image(image_id.normal)
+                        .hover_image(image_id.hover)
+                        .press_image(image_id.press)
+                        .w_h(200.0, 200.0)
+                        .middle()
+                        .set(ids.circular_button, ui);
 
                     // Add the widget to the conrod_core::Ui. This schedules the widget it to be
                     //rawn when we call Ui::draw.
