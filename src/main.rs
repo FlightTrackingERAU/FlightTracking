@@ -5,15 +5,18 @@ extern crate conrod_glium;
 extern crate conrod_winit;
 extern crate find_folder;
 extern crate glium;
-use button_widget::Circular_Button;
-use conrod_core::{widget, Colorable, Labelable, Positionable, Sizeable, Widget};
+use button_widget::CircularButton;
+use conrod_core::{
+    widget::{self, button::ImageIds},
+    Colorable, Labelable, Positionable, Sizeable, Widget,
+};
 use glium::Surface;
 
 mod button_widget;
 mod support;
 
-const WIDTH: u32 = 400;
-const HEIGHT: u32 = 400;
+const WIDTH: u32 = 1000;
+const HEIGHT: u32 = 1000;
 
 fn main() {
     // Create our UI's event loop
@@ -34,8 +37,16 @@ fn main() {
     let mut ui = conrod_core::UiBuilder::new([WIDTH as f64, HEIGHT as f64]).build();
 
     // Generate our widget identifiers
-    widget_ids!(struct Ids {circle_button});
-    let ids = Ids::new(ui.widget_id_generator());
+    widget_ids!(struct Ids {circular_button, airplane_icon});
+    let mut ids = Ids::new(ui.widget_id_generator());
+
+    struct Image {
+        normal: conrod_core::image::Id,
+        hover: conrod_core::image::Id,
+        press: conrod_core::image::Id,
+    }
+
+    let mut image_map = conrod_core::image::Map::new();
 
     // Add the NotoSans font from the file
     let assets = find_folder::Search::KidsThenParents(3, 5)
@@ -43,6 +54,14 @@ fn main() {
         .unwrap();
     let font_path = assets.join("fonts/NotoSans/NotoSans-Regular.ttf");
 
+    let image_path = assets.join("images");
+    let airplane_icon = load_image(&display, image_path.join("airplane-icon.png"));
+
+    let image_id = Image {
+        normal: image_map.insert(airplane_icon),
+        hover: image_map.insert(load_image(&display, image_path.join("airplane-icon.png"))),
+        press: image_map.insert(load_image(&display, image_path.join("airplane-icon.png"))),
+    };
     // A type used for converting `conrod_core::render::Primitives` into `Command`s that can be used
     // for drawing to the glium `Surface`.
     let mut renderer = conrod_glium::Renderer::new(&display).unwrap();
@@ -86,19 +105,10 @@ fn main() {
                     // Set the widgets.
                     let ui = &mut ui.set_widgets();
 
-                    for _clicks in Circular_Button::new()
-                        .color(conrod_core::color::WHITE)
-                        .middle()
-                        .w_h(256.0, 256.0)
-                        .label_font_id(regular)
-                        .label_color(conrod_core::color::WHITE)
-                        .label("Circular Button")
-                        // Add the widget to the conrod_core::Ui. This schedules the widget it to be
-                        // drawn when we call Ui::draw.
-                        .set(ids.circle_button, ui)
-                    {
-                        println!("Dr.T is awesome");
-                    }
+                    CircularButton::image(image_id.normal).set(ids.circular_button, ui);
+
+                    // Add the widget to the conrod_core::Ui. This schedules the widget it to be
+                    //rawn when we call Ui::draw.
 
                     // Request redraw if the `Ui` has changed.
                     display.gl_window().window().request_redraw();
@@ -117,4 +127,19 @@ fn main() {
             _ => {}
         }
     })
+}
+
+fn load_image<P>(display: &glium::Display, path: P) -> glium::texture::SrgbTexture2d
+where
+    P: AsRef<std::path::Path>,
+{
+    let path = path.as_ref();
+    let rgba_image = image::open(&std::path::Path::new(&path)).unwrap().to_rgba();
+    let image_dimensions = rgba_image.dimensions();
+    let raw_image = glium::texture::RawImage2d::from_raw_rgba_reversed(
+        &rgba_image.into_raw(),
+        image_dimensions,
+    );
+    let texture = glium::texture::SrgbTexture2d::new(display, raw_image).unwrap();
+    texture
 }
