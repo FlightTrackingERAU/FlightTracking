@@ -249,6 +249,7 @@ mod tests {
             tile_size: DVec2::new(0.0, 0.0),
             tiles_horizontally: data.x_len,
             tiles_vertically: data.y_start,
+            tile_zoom: 0,
         }
         .collect();
         for rendered in &real {
@@ -301,6 +302,7 @@ mod tests {
             tile_size: DVec2::new(0.0, 0.0),
             tiles_horizontally: 0,
             tiles_vertically: 0,
+            tile_zoom: 0,
         };
         assert_eq!(it.next(), Some((0, 0)));
         assert_eq!(it.next(), Some((0, 1)));

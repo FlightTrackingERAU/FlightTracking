@@ -50,7 +50,9 @@ fn main() {
     let mut last_time = std::time::Instant::now();
     let mut frame_time_ms = 0.0;
 
-    let mut tile_cache = TileCache::new();
+    let runtime = tokio::runtime::Runtime::new().expect("Unable to create Tokio runtime!");
+
+    let mut tile_cache = TileCache::new(&runtime);
 
     let mut should_update_ui = true;
     let mut viewer = map::TileView::new(0.0, 0.0, 2.0, 1080 / 2);

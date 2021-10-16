@@ -1,6 +1,7 @@
 use std::sync::mpsc::{Receiver, SyncSender};
 
 use maptiler_cloud::{ConstructedRequest, Maptiler, TileRequest};
+use tokio::runtime::Runtime;
 
 use crate::tile_cache::{Tile, TileId};
 
@@ -13,7 +14,7 @@ pub struct TileRequester {
 }
 
 impl TileRequester {
-    pub fn spawn<S>(api_key: S) -> Self
+    pub fn new<S>(api_key: S, runtime: &Runtime) -> Self
     where
         S: AsRef<str>,
     {
@@ -24,8 +25,7 @@ impl TileRequester {
 
         let api_key = api_key.as_ref().to_string();
 
-        // Spawn our request loop thread
-        std::thread::spawn(move || request_loop(api_key, tile_tx, request_rx));
+        runtime.spawn(request_loop(api_key, tile_tx, request_rx));
 
         Self {
             tile_rx,
@@ -39,24 +39,15 @@ impl TileRequester {
         self.request_tx.send(tile_request).ok();
     }
 
-    /// Returns an Option<Vec> that contains all tiles (if any) that have been succesfully requested
-    /// since we have last checked
-    pub fn new_tiles(&mut self) -> Option<Vec<Tile>> {
-        let mut tiles = Vec::new();
-
-        while let Ok(tile) = self.tile_rx.try_recv() {
-            tiles.push(tile);
-        }
-
-        if tiles.len() == 0 {
-            None
-        } else {
-            Some(tiles)
-        }
+    /// Returns Some(tile) if a tile is ready, or None otherwise.
+    ///
+    /// The caller should repeat calls to flush all ready tiles
+    pub fn next_ready_tile(&mut self) -> Option<Tile> {
+        self.tile_rx.try_recv().ok()
     }
 }
 
-fn request_loop(
+async fn request_loop(
     api_key: String,
     tile_tx: tokio::sync::mpsc::Sender<Tile>,
     request_rx: Receiver<TileId>,
@@ -64,12 +55,11 @@ fn request_loop(
     // Can customize the runtime parameters later
     // This uses expect(), because we are already in another thread, we would kind of already be in
     // trouble.
-    let runtime = tokio::runtime::Runtime::new().expect("Unable to create Tokio runtime!");
     let maptiler = Maptiler::new(api_key);
 
     loop {
         if let Ok(tile_id) = request_rx.recv() {
-            // This should panic to aid in debugability
+            // This should panic to aid in educability
             // Create the tile request
             let tile_request = TileRequest::new(
                 maptiler_cloud::TileSet::Satellite,
@@ -82,8 +72,9 @@ fn request_loop(
             // Create the request using the Maptiler
             let request = maptiler.create_request(tile_request);
 
+            //TODO: Maybe look at priorities here and limit pending requests to a reasonable number when under load
             // Spawn the request function to be awaited
-            runtime.spawn(request_tile(
+            tokio::spawn(request_tile(
                 tokio::sync::mpsc::Sender::clone(&tile_tx),
                 tile_id,
                 request,

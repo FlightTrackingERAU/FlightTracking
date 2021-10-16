@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use tokio::runtime::Runtime;
+
 use crate::{tile_requester::TileRequester, MAX_ZOOM_LEVEL};
 
 #[derive(Debug, Copy, Clone)]
@@ -32,7 +34,7 @@ pub struct TileCache {
 }
 
 impl TileCache {
-    pub fn new() -> Self {
+    pub fn new(runtime: &Runtime) -> Self {
         // This is 1+ because it counts the 0th zoom level
         let mut hashmaps = Vec::with_capacity(1 + MAX_ZOOM_LEVEL as usize);
 
@@ -44,7 +46,7 @@ impl TileCache {
         }
 
         Self {
-            tile_requester: TileRequester::spawn("VrgC04XoV1a84R5VkUnL"),
+            tile_requester: TileRequester::new("VrgC04XoV1a84R5VkUnL", runtime),
             hashmaps,
         }
     }
@@ -82,20 +84,33 @@ impl TileCache {
             .copied()
     }
 
+    /// Uploads new images to the GPU as they come in.
+    ///
+    /// Executes on the main thread. Change MAX_PROCESS_TIME to tune how long this function will
+    /// run for
     pub fn process(
         &mut self,
         display: &glium::Display,
         image_map: &mut conrod_core::image::Map<glium::Texture2d>,
     ) {
-        if let Some(new_tiles) = self.tile_requester.new_tiles() {
-            for tile in new_tiles {
-                let tile_id = tile.id;
+        use std::time::{Duration, Instant};
+        const MAX_PROCESS_TIME: Duration = Duration::from_millis(15);
+        let start = std::time::Instant::now();
+        let mut tiles_processed = 0;
 
-                let texture = self.create_texture(display, tile.image);
-                let image_id = image_map.insert(texture);
-
-                self.set_cached_tile(tile_id, CachedTile::Cached(image_id));
+        while let Some(tile) = self.tile_requester.next_ready_tile() {
+            let time_spent = Instant::now() - start;
+            if time_spent > MAX_PROCESS_TIME {
+                println!("Breaking from process loop after {} ms. Processed {} tiles", time_spent.as_micros() as f64 / 1000.0, tiles_processed);
+                break;
             }
+            let tile_id = tile.id;
+
+            let texture = self.create_texture(display, tile.image);
+            let image_id = image_map.insert(texture);
+
+            self.set_cached_tile(tile_id, CachedTile::Cached(image_id));
+            tiles_processed += 1;
         }
     }
 
