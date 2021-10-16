@@ -1,6 +1,6 @@
 //! Various utilities for commonly needed things.
 //!
-//! Currently thin contains functions for interpolation, normalization, and mapping one rang of
+//! Currently thin contains functions for interpolation, normalization, and mapping one range of
 //! values to another
 
 pub fn lerp<T, F>(a: T, b: T, f: F) -> T
