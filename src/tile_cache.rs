@@ -101,7 +101,11 @@ impl TileCache {
         while let Some(tile) = self.tile_requester.next_ready_tile() {
             let time_spent = Instant::now() - start;
             if time_spent > MAX_PROCESS_TIME {
-                println!("Breaking from process loop after {} ms. Processed {} tiles", time_spent.as_micros() as f64 / 1000.0, tiles_processed);
+                println!(
+                    "Breaking from process loop after {} ms. Processed {} tiles",
+                    time_spent.as_micros() as f64 / 1000.0,
+                    tiles_processed
+                );
                 break;
             }
             let tile_id = tile.id;
