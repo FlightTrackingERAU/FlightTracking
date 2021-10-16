@@ -159,7 +159,11 @@ impl TileView {
             product: (first_x..(first_x + tiles_wide))
                 .cartesian_product(first_y..first_y + tiles_high),
             max_tile,
-            tile_offset: DVec2::new(-first_offset.x, first_offset.y) * tile_size,
+            //Invert x because we want to pull the first tile to the left so it moves across the
+            //screen well.
+            //We need the first_offset.y - 1.0 to shift the tile up by one. Otherwise we have an
+            //off by one error down the positive y axis.
+            tile_offset: DVec2::new(-first_offset.x, first_offset.y - 1.0) * tile_size,
             tile_size,
             tile_zoom,
             tiles_horizontally: tiles_wide,
