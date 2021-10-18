@@ -23,4 +23,4 @@ tokio = { version = "1.12.0", features = ["full"]}
 image = "0.22"
 
 rain_viewer = "0.1.1"
-maptiler-cloud = "0.1.0"
+maptiler-cloud = "0.2.0"

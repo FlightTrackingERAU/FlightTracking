@@ -57,7 +57,7 @@ impl TileView {
         }
         (zoom as i64)
             .try_into()
-            .expect("Zoom level too large for u32")
+            .expect("Zoom level too large for i64")
     }
 
     /// Sets the `zoom` for the entire tile viewport based on the current `window_width`.
@@ -130,6 +130,11 @@ impl TileView {
             top_left_world.y.rem_euclid(1.0),
         );
 
+        //        let bottom_right = DVec2::new(
+        //            bottom_right_world.x.rem_euclid(1.0),
+        //            bottom_right_world.y.rem_euclid(1.0),
+        //        );
+
         let dest_max = DVec2::new(max_tile as f64, max_tile as f64);
 
         //Next map world coordinates to tile coordinates (0..1) to (0..max_tile)
@@ -160,6 +165,7 @@ impl TileView {
             //off by one error down the positive y axis.
             tile_offset: DVec2::new(-first_offset.x, first_offset.y - 1.0) * tile_size,
             tile_size,
+            tile_zoom,
             tiles_horizontally: tiles_wide,
             tiles_vertically: tiles_high,
         }
@@ -187,6 +193,9 @@ pub struct TileViewIterator {
 
     /// The size of a tile in pixels based on the current zoom
     pub tile_size: DVec2,
+
+    /// The zoom level of the tiles in this iterator
+    pub tile_zoom: TileZoomLevel,
 
     /// The number of tiles to render horizontally
     pub tiles_horizontally: u32,
@@ -240,6 +249,7 @@ mod tests {
             tile_size: DVec2::new(0.0, 0.0),
             tiles_horizontally: data.x_len,
             tiles_vertically: data.y_start,
+            tile_zoom: 0,
         }
         .collect();
         for rendered in &real {
@@ -292,6 +302,7 @@ mod tests {
             tile_size: DVec2::new(0.0, 0.0),
             tiles_horizontally: 0,
             tiles_vertically: 0,
+            tile_zoom: 0,
         };
         assert_eq!(it.next(), Some((0, 0)));
         assert_eq!(it.next(), Some((0, 1)));
