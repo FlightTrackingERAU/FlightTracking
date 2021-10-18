@@ -1,6 +1,6 @@
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
-use maptiler_cloud::{ConstructedRequest, Maptiler, TileRequest};
+use maptiler_cloud::{Maptiler, TileRequest};
 use tokio::runtime::Runtime;
 
 use crate::tile_cache::{Tile, TileId};
