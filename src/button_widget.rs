@@ -110,7 +110,7 @@ impl<'a, S> CircularButton<'a, S> {
     /// If true, will allow user inputs.  If false, will disallow user inputs.  Like
     /// other Conrod configs, this returns self for chainability. Allow dead code
     /// because we never call this in the example.
-    #[allow(dead_code)]
+    #[allow(dead_cde)]
     pub fn enabled(mut self, flag: bool) -> Self {
         self.enabled = flag;
         self
@@ -131,9 +131,9 @@ impl<'a> CircularButton<'a, Image> {
         Self::new(image)
     }
 
-    ///Area that image will appear on.
+    ///Area that image will appear on
     ///
-    ///On a rectangular area.
+    ///On a rectangular area
     pub fn source_rectangle(mut self, rect: conrod_core::position::Rect) -> Self {
         self.show.src_rect = Some(rect);
         self
