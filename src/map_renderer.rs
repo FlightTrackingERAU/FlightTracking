@@ -12,7 +12,11 @@ fn world_to_pixel_x(world_x: f64, ui: &mut UiCell, it: &crate::map::TileViewIter
     0.0
 }
 
-fn world_y_to_pixel_y(world_y: f64, viewport: &crate::map::WorldViewport, window_height: f64) -> f64 {
+fn world_y_to_pixel_y(
+    world_y: f64,
+    viewport: &crate::map::WorldViewport,
+    window_height: f64,
+) -> f64 {
     let half_height = window_height / 2.0;
     crate::util::map(
         viewport.bottom_right.y,
@@ -40,19 +44,7 @@ pub fn draw(
 
     let tiles: Vec<_> = it.clone().collect();
 
-    // Canvas::new().pad(0.0).set(ids.viewport, ui);
-    /*
-    Canvas::new()
-        .color(conrod_core::Color::Rgba(0.0, 0.0, 0.0, 1.0))
-        .middle()
-        .w(1280.0)
-        .h(720.0)
-        .set(ids.viewport, ui);
-    */
-
     ids.tiles.resize(tiles.len(), &mut ui.widget_id_generator());
-    ids.squares
-        .resize(tiles.len(), &mut ui.widget_id_generator());
     ids.square_text
         .resize(tiles.len(), &mut ui.widget_id_generator());
 
@@ -78,12 +70,8 @@ pub fn draw(
                 .x_y(x, y)
                 .wh(size.to_array())
                 .set(ids.tiles[i], ui);
-        } else {
-            Rectangle::outline(size.to_array())
-                .x_y(x, y)
-                .set(ids.squares[i], ui);
-
-            println!("Rec at: {} {}", x, y);
+        } else if cfg!(debug_assertions) {
+            //Render debug tile information when run in debug mode
 
             let text = format!("[{}, {}] @ {}", tile.0, tile.1, zoom_level);
             Text::new(text.as_str())

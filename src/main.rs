@@ -1,7 +1,9 @@
-use conrod_core::{widget, widget_ids, Colorable, Positionable, Widget};
+use conrod_core::{widget, widget_ids, Colorable, Labelable, Positionable, Sizeable, Widget};
 use glam::DVec2;
 use glium::Surface;
 use tile_cache::TileCache;
+
+use crate::button_widget::CircularButton;
 
 mod map;
 mod map_renderer;
@@ -11,12 +13,14 @@ mod tile_requester;
 mod support;
 mod util;
 
+mod button_widget;
+
 const WIDTH: u32 = 1280;
 const HEIGHT: u32 = 720;
 
 const MAX_ZOOM_LEVEL: u32 = 20;
 
-widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], latitude_lines[] });
+widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], tiles[], square_text[], circular_button, latitude_lines[] });
 
 fn main() {
     // Create our UI's event loop
@@ -132,12 +136,24 @@ fn main() {
                         frame_time_ms,
                         (1000.0 / frame_time_ms) as u32
                     );
+
                     widget::Text::new(frame_time_str.as_str())
-                        .top_right()
+                        .top_left()
                         .color(conrod_core::color::WHITE)
                         .justify(conrod_core::text::Justify::Right)
                         .font_size(12)
                         .set(ids.fps_logger, ui);
+
+                    for _clicks in CircularButton::new()
+                        .color(conrod_core::color::WHITE)
+                        .top_right()
+                        .w_h(50.0, 50.0)
+                        .label_color(conrod_core::color::WHITE)
+                        .label("A")
+                        .set(ids.circular_button, ui)
+                    {
+                        println!("Dr.T is awesome, That is why he will curve the Test");
+                    }
 
                     // Request redraw if the `Ui` has changed.
                     display.gl_window().window().request_redraw();
@@ -149,7 +165,7 @@ fn main() {
 
                 renderer.fill(&display, primitives, &image_map);
                 let mut target = display.draw();
-                target.clear_color(1.0, 0.0, 0.0, 1.0);
+                target.clear_color(0.21, 0.32, 0.4, 1.0);
                 renderer.draw(&display, &mut target, &image_map).unwrap();
                 target.finish().unwrap();
 
