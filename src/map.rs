@@ -49,7 +49,7 @@ impl TileView {
         //2^zoom = 1 / (px * tile_size)
         //zoom = log_2(1 / px * tile_size)
 
-        let zoom = f64::log2(1f64 / (self.pixel_size * tile_size as f64)).ceil();
+        let zoom = f64::log2(1f64 / (self.pixel_size * tile_size as f64)).ceil() + 1.0;
         //Convert to i64 first so that we can use try from here
         //Somehow there is no impl TryInto<i64> for f64 or TryInto<u32> for f64
         if zoom <= 0.0 {
