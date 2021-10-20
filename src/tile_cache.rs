@@ -45,8 +45,10 @@ impl TileCache {
             hashmaps.push(hashmap);
         }
 
+        // GBnoGxmU64rzYqypBLp9
+        // VrgC04XoV1a84R5VkUnL
         Self {
-            tile_requester: TileRequester::new("VrgC04XoV1a84R5VkUnL", runtime),
+            tile_requester: TileRequester::new("GBnoGxmU64rzYqypBLp9", runtime),
             hashmaps,
         }
     }
@@ -93,13 +95,14 @@ impl TileCache {
         display: &glium::Display,
         image_map: &mut conrod_core::image::Map<glium::Texture2d>,
     ) {
-        use std::time::{Duration, Instant};
-        const MAX_PROCESS_TIME: Duration = Duration::from_millis(15);
-        let start = std::time::Instant::now();
-        let mut tiles_processed = 0;
+        // use std::time::{Duration, Instant};
+        // const MAX_PROCESS_TIME: Duration = Duration::from_millis(15);
+        // let start = std::time::Instant::now();
+        // let mut tiles_processed = 0;
 
         while let Some(tile) = self.tile_requester.next_ready_tile() {
-            let time_spent = Instant::now() - start;
+            // let time_spent = Instant::now() - start;
+            /*
             if time_spent > MAX_PROCESS_TIME {
                 println!(
                     "Breaking from process loop after {} ms. Processed {} tiles",
@@ -107,14 +110,14 @@ impl TileCache {
                     tiles_processed
                 );
                 break;
-            }
+            }*/
             let tile_id = tile.id;
 
             let texture = self.create_texture(display, tile.image);
             let image_id = image_map.insert(texture);
 
             self.set_cached_tile(tile_id, CachedTile::Cached(image_id));
-            tiles_processed += 1;
+            // tiles_processed += 1;
         }
     }
 
