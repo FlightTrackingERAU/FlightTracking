@@ -44,6 +44,10 @@ impl TileRequester {
     }
 }
 
+fn get_tile_path(tile: TileId) -> String {
+    format!("./tile-cache/{}/{}/{}.jpg", tile.zoom, tile.x, tile.y)
+}
+
 async fn request_loop(
     api_key: String,
     tile_tx: UnboundedSender<Tile>,
@@ -56,6 +60,13 @@ async fn request_loop(
 
     loop {
         if let Some(tile_id) = request_rx.recv().await {
+            if let Ok(disk_bytes) = tokio::fs::read(get_tile_path(tile_id)).await {
+                println!("Got cached tile: {:?}", tile_id);
+                let image = image::load_from_memory(&disk_bytes).unwrap().into_rgba();
+                let tile = Tile { id: tile_id, image };
+                tile_tx.send(tile).ok();
+                continue;
+            }
             // This should panic to aid in educability
             // Create the tile request
             let tile_request = TileRequest::new(
@@ -75,6 +86,17 @@ async fn request_loop(
             let tile_tx = tile_tx.clone();
             tokio::spawn(async move {
                 if let Ok(tile_bytes) = request.execute().await {
+                    let path = get_tile_path(tile_id);
+                    let parent = std::path::Path::new(&path)
+                        .parent()
+                        .expect("Failed to obtain tile cache parent dir");
+
+                    let _ = tokio::fs::create_dir_all(parent).await;
+
+                    println!("Saving tile: {:?} to {}", tile_id, path);
+                    if let Some(err) = tokio::fs::write(&path, &tile_bytes).await.err() {
+                        println!("Failed to save to {}: {:?}", path, err);
+                    }
                     // Create an RGBA image from the JPEG bytes
                     let image = image::load_from_memory(&tile_bytes).unwrap().into_rgba();
 
