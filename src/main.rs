@@ -16,13 +16,13 @@ const HEIGHT: u32 = 720;
 
 const MAX_ZOOM_LEVEL: u32 = 20;
 
-widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[] });
+widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], latitude_lines[] });
 
 fn main() {
     // Create our UI's event loop
     let event_loop = glium::glutin::event_loop::EventLoop::new();
     let window = glium::glutin::window::WindowBuilder::new()
-        .with_title("Conrod Window")
+        .with_title("Flight Tracking - TEAM RUST")
         .with_inner_size(glium::glutin::dpi::LogicalSize::new(WIDTH, HEIGHT));
 
     let context = glium::glutin::ContextBuilder::new()
@@ -55,7 +55,7 @@ fn main() {
     let mut tile_cache = TileCache::new(&runtime);
 
     let mut should_update_ui = true;
-    let mut viewer = map::TileView::new(0.0, 0.0, 2.0, 1080 / 2);
+    let mut viewer = map::TileView::new(0.0, 0.0, 2.0, WIDTH as f64 / 2.0);
     let mut last_cursor_pos: Option<DVec2> = None;
     let mut left_pressed = false;
 

@@ -39,6 +39,39 @@ where
     lerp(right_min, right_max, f)
 }
 
+pub fn round_up<T>(to_round: T, multiple: T) -> T
+where
+    T: num::Signed,
+    T: From<i32>,
+    T: std::ops::Sub,
+    T: std::cmp::PartialOrd,
+    T: Clone,
+{
+    let zero = T::from(0);
+    if multiple == zero {
+        return to_round;
+    }
+
+    let remainder = to_round.abs() % multiple.clone();
+    if remainder == zero {
+        return to_round;
+    }
+
+    if to_round < zero {
+        -(to_round.abs() - remainder)
+    } else {
+        to_round + multiple - remainder
+    }
+}
+
+pub fn round_up_pow2<T>(to_round: T) -> T
+where
+    T: num::traits::float::Float,
+{
+    //Find out log2 of `to_round` and round up, then use as exponent for 2 to get result
+    T::powf(T::from(2).unwrap(), T::ceil(T::log2(to_round)))
+}
+
 /// Takes a latitude in degrees and converts it to a world y coordinate using the mercator
 /// projection.
 pub fn y_from_latitude(lat_degrees: f64) -> f64 {
@@ -71,6 +104,32 @@ pub fn latitude_from_y(y: f64) -> f64 {
     )
 }
 
+/// Takes a latitude in degrees and converts it to a world y coordinate using the mercator
+/// projection.
+pub fn x_from_longitude(longitude_degrees: f64) -> f64 {
+    map(-180.0, 180.0, longitude_degrees, 0.0, 1.0)
+}
+
+/// Takes a x in world coordinates and converts it to longitude in degrees using the mercator
+/// projection.
+pub fn longitude_from_x(x: f64) -> f64 {
+    map(0.0, 1.0, x, -180.0, 180.0)
+}
+
+/// Rounds a number down to the nearest multiple of `modulo`
+pub fn modulo_floor(val: f64, modulo: f64) -> f64 {
+    val - (val.rem_euclid(modulo))
+}
+
+/// Rounds a number up to the nearest multiple of `modulo`
+pub fn modulo_ceil(val: f64, modulo: f64) -> f64 {
+    if val % modulo == 0.0 {
+        val
+    } else {
+        val + modulo - val.rem_euclid(modulo)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -93,6 +152,21 @@ mod tests {
         ish(latitude_from_y(0.5), 0.0);
         ish(latitude_from_y(0.0), 85.05113);
         ish(latitude_from_y(1.0), -85.05113);
+    }
+
+    #[test]
+    fn test_modulo_floor() {
+        assert_eq!(modulo_floor(4.5, 2.0), 4.0);
+        assert_eq!(modulo_floor(55.0, 10.0), 50.0);
+        assert_eq!(modulo_floor(4.5, 2.0), 4.0);
+        assert_eq!(modulo_floor(-4.5, 2.0), -6.0);
+    }
+
+    #[test]
+    fn test_modulo_ceil() {
+        assert_eq!(modulo_ceil(4.5, 2.0), 6.0);
+        assert_eq!(modulo_ceil(55.0, 10.0), 60.0);
+        assert_eq!(modulo_ceil(4.5, 1.5), 4.5);
     }
 }
 

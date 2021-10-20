@@ -10,6 +10,23 @@ pub type TileZoomLevel = u32;
 
 pub type TileCoordinate = (u32, u32);
 
+/// Represents the viewport of the camera in unbounded world coordinates.
+/// 1 means the width of the entire world. These are unbounded, meaning they will be out of the
+/// normal 0..1 range if the camera is zoomed out very far or if the user has gone to a different
+/// world and zoomed in
+pub struct WorldViewport {
+    /// The top left of the viewport.
+    ///
+    /// The following are always guaranteed to be true for a `WorldViewport` returned from this
+    /// this file:
+    /// - `top_left.x <= bottom_right.x`
+    /// - `top_left.x <= bottom_right.y`
+    pub top_left: DVec2,
+
+    /// The bottom right of the viewport
+    pub bottom_right: DVec2,
+}
+
 pub struct TileView {
     /// The center of the view [0..1] for both x and y
     ///
@@ -28,7 +45,7 @@ pub struct TileView {
 }
 
 impl TileView {
-    pub fn new(latitude: f64, longitude: f64, zoom: f64, window_width: u32) -> Self {
+    pub fn new(latitude: f64, longitude: f64, zoom: f64, window_width: f64) -> Self {
         let x = crate::util::map(-180.0, 180.0, longitude, 0.0, 1.0);
         //TODO: Convert latitude properly, accounting for mercator stretching near the poles
         let y = crate::util::map(90.0, -90.0, latitude, 0.0, 1.0);
@@ -64,7 +81,7 @@ impl TileView {
     /// The value returned by [`tile_zoom_level`] will always at least as big as `zoom` for a
     /// window larger then the tile size, because more tiles are needed to span the entire window
     #[cfg(test)]
-    pub fn set_zoom(&mut self, zoom: f64, window_width: u32) {
+    pub fn set_zoom(&mut self, zoom: f64, window_width: f64) {
         let new_pixel_size = pixel_size_from_zoom(zoom, window_width);
         self.pixel_size = new_pixel_size;
     }
@@ -90,11 +107,28 @@ impl TileView {
         self.center += direction * self.pixel_size;
     }
 
+    pub fn get_world_viewport(&self, screen_width: f64, screen_height: f64) -> WorldViewport {
+        //Compute the size of half the screen in terms of world coordinates
+        let half_screen_size = DVec2::new(
+            screen_width * self.pixel_size,
+            screen_height * self.pixel_size,
+        ) / 2.0;
+
+        //Calculate where the top left and bottom right of our viewport is world coordinates
+        let adjusted_half_screen_size = DVec2::new(half_screen_size.x, half_screen_size.y);
+        let top_left = self.center - adjusted_half_screen_size;
+        let bottom_right = self.center + adjusted_half_screen_size;
+        WorldViewport {
+            top_left,
+            bottom_right,
+        }
+    }
+
     pub fn tile_iter(
         &self,
         tile_size: u32,
-        screen_width: u32,
-        screen_height: u32,
+        screen_width: f64,
+        screen_height: f64,
     ) -> TileViewIterator {
         let tile_zoom = self.tile_zoom_level(tile_size);
         let max_tile = 2u32.pow(tile_zoom);
@@ -114,16 +148,9 @@ impl TileView {
         //(pixel/world) * (world/1) -> pixel
         let tile_size = tile_size_world * inv_pixel_size;
 
-        //Compute the size of half the screen in terms of world coordinates
-        let half_screen_size = DVec2::new(
-            screen_width as f64 * self.pixel_size,
-            screen_height as f64 * self.pixel_size,
-        ) / 2.0;
-
-        //Calculate where the top left and bottom right of our viewport is world coordinates
-        let adjusted_half_screen_size = DVec2::new(half_screen_size.x, half_screen_size.y);
-        let top_left_world = self.center - adjusted_half_screen_size;
-        let bottom_right_world = self.center + adjusted_half_screen_size;
+        let viewport = self.get_world_viewport(screen_width, screen_height);
+        let top_left_world = viewport.top_left;
+        let bottom_right_world = viewport.bottom_right;
 
         let top_left = DVec2::new(
             top_left_world.x.rem_euclid(1.0),
@@ -173,16 +200,17 @@ impl TileView {
 }
 
 /// Converts a zoom level and the current window size to a `pixel_size` value.
-fn pixel_size_from_zoom(zoom: f64, window_width: u32) -> f64 {
+fn pixel_size_from_zoom(zoom: f64, window_width: f64) -> f64 {
     //Use zoom to calculate how wide the window is in world units (zoom level 0 = whole world)
     let window_size: f64 = 1.0 / 2f64.powf(zoom);
 
     // Divide by the number of pixels to get the number of world coordinates per pixel
-    window_size / window_width as f64
+    window_size / window_width
 }
 
 /// Walks the positions of all the tiles currently in view, returning their coordinates for
 /// rendering
+#[derive(Clone, Debug)]
 pub struct TileViewIterator {
     product: itertools::Product<Range<u32>, Range<u32>>,
     max_tile: u32,
@@ -222,8 +250,8 @@ mod tests {
     struct IsSameTiles {
         view: TileView,
         tile_size: u32,
-        screen_width: u32,
-        screen_height: u32,
+        screen_width: f64,
+        screen_height: f64,
         x_start: u32,
         x_len: u32,
         y_start: u32,
@@ -267,16 +295,16 @@ mod tests {
     fn pixel_size_from_zoom_test() {
         //Zoom level 0 is the entire world and if we have one pixel then width then each pixel should
         //be the entire world
-        assert_eq!(pixel_size_from_zoom(0.0, 1), 1.0);
+        assert_eq!(pixel_size_from_zoom(0.0, 1.0), 1.0);
 
         // At zoom=1 half of the world is visible horizontally,
         // and if we have 10 pixels then each pixel should be 1/2 * 1/10 == 0.05
-        assert_eq!(pixel_size_from_zoom(1.0, 10), 0.05);
+        assert_eq!(pixel_size_from_zoom(1.0, 10.0), 0.05);
     }
 
     #[test]
     fn tile_view() {
-        let mut view = TileView::new(0.0, 0.0, 0.0, 1000);
+        let mut view = TileView::new(0.0, 0.0, 0.0, 1000.0);
         //Center the world and use zoom level 0 - the whole world is visible.
         //With a screen 1000 pixels wide, we need at least 1000 pixels wide of tiles to look nice.
         //Because our virtual tiles are 256x256, then we need 4 of them to to fill the screen (1024
@@ -288,7 +316,7 @@ mod tests {
         //If we are using zoom level 0.5 and the window is 500 pixels wide we need 2 tiles for the
         //entire window, and the entire window is at zoom level 2, meaning each tile should be at
         //zoom level 3
-        view.set_zoom(2.0, 500);
+        view.set_zoom(2.0, 500.0);
         assert_eq!(view.tile_zoom_level(256), 3);
         assert_eq!(view.tile_zoom_level(128), 4);
     }
@@ -313,8 +341,8 @@ mod tests {
 
     #[test]
     fn tile_it_1() {
-        let screen_width = 500;
-        let screen_height = 500;
+        let screen_width = 500.0;
+        let screen_height = 500.0;
         //Use a tiny bit of zoom to force zoom level 2 to be chosen
         let view = TileView::new(0.0, 0.0, 0.001, screen_width);
         are_tiles_visible(IsSameTiles {
@@ -331,8 +359,8 @@ mod tests {
 
     #[test]
     fn tile_it_2() {
-        let screen_width = 500;
-        let screen_height = 500;
+        let screen_width = 500.0;
+        let screen_height = 500.0;
 
         //Use a tiny bit of zoom to force zoom level 2 to be chosen for each tile
         let view = TileView::new(0.0, 0.0, 1.01, screen_width);
@@ -350,8 +378,8 @@ mod tests {
 
     #[test]
     fn tile_it_3() {
-        let screen_width = 750;
-        let screen_height = 500;
+        let screen_width = 750.0;
+        let screen_height = 500.0;
 
         //Use a tiny bit of zoom to force zoom level 2 to be chosen for each tile
         let view = TileView::new(83.0, -178.0, 4.001, screen_width);
