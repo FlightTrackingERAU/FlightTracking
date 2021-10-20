@@ -1,4 +1,4 @@
-use conrod_core::{widget, widget_ids, Colorable, Labelable, Positionable, Sizeable, Widget};
+use conrod_core::{Colorable, Labelable, Positionable, Sizeable, Widget, text::Font, widget, widget_ids};
 use glam::DVec2;
 use glium::Surface;
 use tile_cache::TileCache;
@@ -41,13 +41,10 @@ fn main() {
     let mut ids = Ids::new(ui.widget_id_generator());
 
     let mut image_map: conrod_core::image::Map<glium::Texture2d> = conrod_core::image::Map::new();
-
-    let assets = find_folder::Search::KidsThenParents(3, 5)
-        .for_folder("assets")
-        .unwrap();
-
-    let font_path = assets.join("fonts/NotoSans/NotoSans-Regular.ttf");
-    ui.fonts.insert_from_file(font_path).unwrap();
+ 
+    let noto_sans_ttf = include_bytes!("../assets/fonts/NotoSans/NotoSans-Regular.ttf");
+    let font = Font::from_bytes(noto_sans_ttf).expect("Failed to decode font");
+    ui.fonts.insert(font);
 
     let mut renderer = conrod_glium::Renderer::new(&display).unwrap();
 
