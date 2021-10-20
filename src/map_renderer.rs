@@ -1,7 +1,4 @@
-use conrod_core::{
-    widget::{Image, Rectangle, Text},
-    Colorable, Positionable, Sizeable, UiCell, Widget,
-};
+use conrod_core::{widget::Image, Positionable, Sizeable, UiCell, Widget};
 
 use crate::tile_cache::{TileCache, TileId};
 
@@ -63,17 +60,17 @@ pub fn draw(
                 .x_y(x, y)
                 .wh(size.to_array())
                 .set(ids.tiles[i], ui);
-        } else {
-            Rectangle::outline(size.to_array())
-                .x_y(x, y)
-                .set(ids.squares[i], ui);
+        } /* else {
+              Rectangle::outline(size.to_array())
+                  .x_y(x, y)
+                  .set(ids.squares[i], ui);
 
-            let text = format!("[{}, {}] @ {}", tile.0, tile.1, zoom_level);
-            Text::new(text.as_str())
-                .xy_relative([0.0, 0.0])
-                .color(conrod_core::color::WHITE)
-                .font_size(12)
-                .set(ids.square_text[i], ui);
-        }
+              let text = format!("[{}, {}] @ {}", tile.0, tile.1, zoom_level);
+              Text::new(text.as_str())
+                  .xy_relative([0.0, 0.0])
+                  .color(conrod_core::color::WHITE)
+                  .font_size(12)
+                  .set(ids.square_text[i], ui);
+          } */
     }
 }
