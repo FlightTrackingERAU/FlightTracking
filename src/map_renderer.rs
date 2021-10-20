@@ -12,8 +12,8 @@ fn world_to_pixel_x(world_x: f64, ui: &mut UiCell, it: &crate::map::TileViewIter
     0.0
 }
 
-fn world_y_to_pixel_y(world_y: f64, viewport: &crate::map::WorldViewport, ui: &mut UiCell) -> f64 {
-    let half_height = ui.win_h / 2.0;
+fn world_y_to_pixel_y(world_y: f64, viewport: &crate::map::WorldViewport, window_height: f64) -> f64 {
+    let half_height = window_height / 2.0;
     crate::util::map(
         viewport.bottom_right.y,
         viewport.top_left.y,
@@ -83,6 +83,8 @@ pub fn draw(
                 .x_y(x, y)
                 .set(ids.squares[i], ui);
 
+            println!("Rec at: {} {}", x, y);
+
             let text = format!("[{}, {}] @ {}", tile.0, tile.1, zoom_level);
             Text::new(text.as_str())
                 .xy_relative([0.0, 0.0])
@@ -111,7 +113,7 @@ pub fn draw(
     for i in 0..lat_lines {
         let y = min_lat_world + i as f64 * lat_line_distance;
         let lat = crate::util::latitude_from_y(y.rem_euclid(1.0));
-        let y_pixel = world_y_to_pixel_y(y, &viewport, ui);
+        let y_pixel = world_y_to_pixel_y(y, &viewport, ui.win_h);
         println!("{} lat at y {}, pixel {}", lat, y, y_pixel);
         Line::new([0.0, y_pixel], [ui.win_w, y_pixel])
             .color(conrod_core::color::WHITE)
