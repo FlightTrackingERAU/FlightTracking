@@ -26,7 +26,12 @@ impl TileRequester {
         let api_key = api_key.as_ref().to_string();
         let tile_size = Arc::new(Mutex::new(None));
 
-        runtime.spawn(request_loop(api_key, tile_tx, request_rx, tile_size.clone()));
+        runtime.spawn(request_loop(
+            api_key,
+            tile_tx,
+            request_rx,
+            tile_size.clone(),
+        ));
 
         Self {
             tile_rx,
