@@ -2,9 +2,6 @@ use conrod_core::{widget::Image, Positionable, Sizeable, UiCell, Widget};
 
 use crate::tile_cache::{TileCache, TileId};
 
-// The width and height of a tile in pixels
-const TILE_SIZE: u32 = 256;
-
 pub fn draw(
     tile_cache: &mut TileCache,
     view: &crate::map::TileView,
@@ -13,7 +10,12 @@ pub fn draw(
     ids: &mut crate::Ids,
     ui: &mut UiCell,
 ) {
-    let it = view.tile_iter(TILE_SIZE, ui.win_w as u32, ui.win_h as u32);
+    //Or value is okay here because `tile_size()` only returns `None` if no tiles are cached, which
+    //only happens the first few frames, therefore this value doesn't need to be accurate
+    let tile_size = tile_cache.tile_size().unwrap_or(256) / 2;
+    println!("Using size: {}", tile_size);
+
+    let it = view.tile_iter(tile_size, ui.win_w as u32, ui.win_h as u32);
     let size = it.tile_size;
     let offset = it.tile_offset;
     let zoom_level = it.tile_zoom;

@@ -5,9 +5,12 @@ use tokio::runtime::Runtime;
 
 use crate::tile_cache::{Tile, TileId};
 
+use std::sync::{Arc, Mutex};
+
 pub struct TileRequester {
     tile_rx: UnboundedReceiver<Tile>,
     request_tx: UnboundedSender<TileId>,
+    tile_size: Arc<Mutex<Option<u32>>>,
 }
 
 impl TileRequester {
@@ -21,13 +24,19 @@ impl TileRequester {
         let (request_tx, request_rx) = tokio::sync::mpsc::unbounded_channel();
 
         let api_key = api_key.as_ref().to_string();
+        let tile_size = Arc::new(Mutex::new(None));
 
-        runtime.spawn(request_loop(api_key, tile_tx, request_rx));
+        runtime.spawn(request_loop(api_key, tile_tx, request_rx, tile_size.clone()));
 
         Self {
             tile_rx,
             request_tx,
+            tile_size,
         }
+    }
+
+    pub fn tile_size(&self) -> Option<u32> {
+        self.tile_size.lock().unwrap().clone()
     }
 
     /// Sends a request to get a tile
@@ -52,6 +61,7 @@ async fn request_loop(
     api_key: String,
     tile_tx: UnboundedSender<Tile>,
     mut request_rx: UnboundedReceiver<TileId>,
+    tile_size: Arc<Mutex<Option<u32>>>,
 ) {
     // Can customize the runtime parameters later
     // This uses expect(), because we are already in another thread, we would kind of already be in
@@ -61,7 +71,6 @@ async fn request_loop(
     loop {
         if let Some(tile_id) = request_rx.recv().await {
             if let Ok(disk_bytes) = tokio::fs::read(get_tile_path(tile_id)).await {
-                println!("Got cached tile: {:?}", tile_id);
                 let image = image::load_from_memory(&disk_bytes).unwrap().into_rgba();
                 let tile = Tile { id: tile_id, image };
                 tile_tx.send(tile).ok();
@@ -84,6 +93,7 @@ async fn request_loop(
 
             // Spawn the request function. Will push the tile to tile_tx when the request completes
             let tile_tx = tile_tx.clone();
+            let tile_size = tile_size.clone();
             tokio::spawn(async move {
                 if let Ok(tile_bytes) = request.execute().await {
                     let path = get_tile_path(tile_id);
@@ -93,12 +103,20 @@ async fn request_loop(
 
                     let _ = tokio::fs::create_dir_all(parent).await;
 
-                    println!("Saving tile: {:?} to {}", tile_id, path);
+                    //println!("Saving tile: {:?} to {}", tile_id, path);
                     if let Some(err) = tokio::fs::write(&path, &tile_bytes).await.err() {
                         println!("Failed to save to {}: {:?}", path, err);
                     }
                     // Create an RGBA image from the JPEG bytes
                     let image = image::load_from_memory(&tile_bytes).unwrap().into_rgba();
+                    //Images must be square
+                    assert_eq!(image.width(), image.height());
+
+                    let mut lock = tile_size.lock().unwrap();
+                    if lock.is_none() {
+                        println!("Setting size to {}", image.width());
+                        *lock = Some(image.width());
+                    }
 
                     let tile = Tile { id: tile_id, image };
 

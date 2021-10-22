@@ -49,7 +49,7 @@ impl TileView {
         //2^zoom = 1 / (px * tile_size)
         //zoom = log_2(1 / px * tile_size)
 
-        let zoom = f64::log2(1f64 / (self.pixel_size * tile_size as f64)).ceil() + 1.0;
+        let zoom = f64::log2(1f64 / (self.pixel_size * tile_size as f64)).ceil();
         //Convert to i64 first so that we can use try from here
         //Somehow there is no impl TryInto<i64> for f64 or TryInto<u32> for f64
         if zoom <= 0.0 {
@@ -282,6 +282,7 @@ mod tests {
         //Because our virtual tiles are 256x256, then we need 4 of them to to fill the screen (1024
         //pixels). Therefore use zoom level 2 which includes 2^2 = 4 tiles
         assert_eq!(view.tile_zoom_level(256), 2);
+        assert_eq!(view.tile_zoom_level(200), 3);
 
         assert_eq!(view.tile_zoom_level(512), 1);
 
@@ -315,8 +316,7 @@ mod tests {
     fn tile_it_1() {
         let screen_width = 500;
         let screen_height = 500;
-        //Use a tiny bit of zoom to force zoom level 2 to be chosen
-        let view = TileView::new(0.0, 0.0, 0.001, screen_width);
+        let view = TileView::new(0.0, 0.0, 0.0, screen_width);
         are_tiles_visible(IsSameTiles {
             view,
             tile_size: 256,
@@ -334,8 +334,7 @@ mod tests {
         let screen_width = 500;
         let screen_height = 500;
 
-        //Use a tiny bit of zoom to force zoom level 2 to be chosen for each tile
-        let view = TileView::new(0.0, 0.0, 1.01, screen_width);
+        let view = TileView::new(0.0, 0.0, 1.0, screen_width);
         are_tiles_visible(IsSameTiles {
             view,
             tile_size: 256,
@@ -353,8 +352,7 @@ mod tests {
         let screen_width = 750;
         let screen_height = 500;
 
-        //Use a tiny bit of zoom to force zoom level 2 to be chosen for each tile
-        let view = TileView::new(83.0, -178.0, 4.001, screen_width);
+        let view = TileView::new(83.0, -178.0, 4.0, screen_width);
         are_tiles_visible(IsSameTiles {
             view,
             tile_size: 256,
@@ -365,5 +363,22 @@ mod tests {
             y_start: 1,
             y_len: 2,
         });
+    }
+
+    #[test]
+    fn tile_view_high_res() {
+        let window_width = 1000;
+        let tile_width = 256;
+        let mut view = TileView::new(0.0, 0.0, 0.0, window_width);
+        for i in 0..100000 {
+            let zoom = i as f64 / 99.997;
+            view.set_zoom(zoom, window_width);
+            let tile_zoom_level = view.tile_zoom_level(tile_width);
+            let pixels_across = tile_width as f64 * 2.0f64.powi(tile_zoom_level as i32);
+            //Make sure that we always render more tile pixels wide than window width
+            //This makes sure that each final screen pixel is not interpolated because
+            //there are too few tile pixels
+            assert!(window_width as f64 <= pixels_across);
+        }
     }
 }
