@@ -54,7 +54,7 @@ pub struct Style {
 
 //Here we will making a widget with Circle and Text for the label
 //
-//This is how we generate it
+//This is how we generate one
 widget_ids! {
     struct TextIds{
         circle,
