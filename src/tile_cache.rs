@@ -71,6 +71,10 @@ impl TileCache {
         }
     }
 
+    pub fn tile_size(&self) -> Option<u32> {
+        self.tile_requester.tile_size()
+    }
+
     fn set_cached_tile(&mut self, tile_id: TileId, cached_tile: CachedTile) {
         // TODO: Optimization: .get_unchecked_mut?
         let hash_map = self.hashmaps.get_mut(tile_id.zoom as usize).unwrap();
