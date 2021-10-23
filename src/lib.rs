@@ -50,6 +50,9 @@ pub struct Style {
 }
 
 ///Luke and Troy's part of document
+///
+///
+///
 #[derive(Debug, Copy, Clone)]
 pub struct TileId {
     pub x: u32,
