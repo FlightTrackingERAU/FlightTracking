@@ -1,8 +1,8 @@
-use conrod_core::{
-    self, text, widget, widget_ids, Color, Colorable, FontSize, Labelable, Positionable, Scalar,
-    Widget,
-};
+use conrod_core::{self, text, widget, Color, FontSize, Scalar};
 use conrod_core::{WidgetCommon, WidgetStyle};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 ///Empty lib for now
 pub struct RandomStruct;
@@ -47,4 +47,33 @@ pub struct Style {
     /// The label's typographic alignment over the *x* axis.
     #[conrod(default = "text::Justify::Center")]
     pub label_justify: Option<text::Justify>,
+}
+
+///Luke and Troy's part of document
+#[derive(Debug, Copy, Clone)]
+pub struct TileId {
+    pub x: u32,
+    pub y: u32,
+    pub zoom: u32,
+}
+pub struct Tile {
+    pub id: TileId,
+    pub image: image::RgbaImage,
+}
+
+#[derive(Debug, Copy, Clone)]
+enum CachedTile {
+    Pending,
+    Cached(conrod_core::image::Id),
+}
+
+pub struct TileCache {
+    tile_requester: TileRequester,
+    hashmaps: Vec<HashMap<(u32, u32), CachedTile>>,
+}
+
+pub struct TileRequester {
+    tile_rx: UnboundedReceiver<Tile>,
+    request_tx: UnboundedSender<TileId>,
+    tile_size: Arc<Mutex<Option<u32>>>,
 }
