@@ -8,6 +8,7 @@ use conrod_core::{WidgetCommon, WidgetStyle};
 pub struct RandomStruct;
 
 ///Custom implementation of a circular button widget
+#[derive(WidgetCommon)]
 pub struct CircularButton<'a> {
     /// An object that handles some of the dirty work of rendering a GUI. We don't
     /// really have to worry about it.
