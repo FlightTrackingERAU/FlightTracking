@@ -96,7 +96,7 @@ fn main() {
                     // Set the widgets.
                     let ui = &mut ui.set_widgets();
 
-                    for _clicks in CircularButton::new()
+                    if let Some(_clicks) = CircularButton::new()
                         .color(conrod_core::color::WHITE)
                         .middle()
                         .w_h(256.0, 256.0)
@@ -104,7 +104,7 @@ fn main() {
                         .label("Circular Button")
                         .set(ids.circle_button, ui)
                     {
-                        println!("Dr.T is awesome, That is why he will curve the Test");
+                        println!("Dr. T is awesome, That is why he will curve the Test");
                     }
 
                     // Request redraw if the `Ui` has changed.
