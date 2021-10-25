@@ -22,7 +22,6 @@ find_folder =  "0.3.0"
 image = "0.22"
 rand = "0.8.4"
 tokio = { version = "1.12.0", features = ["full"]}
-image = "0.22"
 
 rain_viewer = "0.1.1"
 maptiler-cloud = "0.2.0"

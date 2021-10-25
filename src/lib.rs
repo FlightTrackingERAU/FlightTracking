@@ -1,5 +1,10 @@
 use conrod_core::{
-    text::Font, widget, widget_ids, Colorable, Labelable, Positionable, Sizeable, Widget,
+    text::Font,
+    widget::{
+        self,
+        button::{Flat, ImageIds},
+    },
+    widget_ids, Colorable, Labelable, Positionable, Sizeable, Widget,
 };
 use glam::DVec2;
 use glium::Surface;
@@ -24,7 +29,7 @@ const HEIGHT: u32 = 720;
 
 const MAX_ZOOM_LEVEL: u32 = 20;
 
-widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], circular_button });
+widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], circular_button ,airplane_image, image_button});
 
 pub fn run_app() {
     // Create our UI's event loop
@@ -46,7 +51,27 @@ pub fn run_app() {
 
     let mut image_map: conrod_core::image::Map<glium::Texture2d> = conrod_core::image::Map::new();
 
+    struct Image_Ids {
+        normal: conrod_core::image::Id,
+        hover: conrod_core::image::Id,
+        press: conrod_core::image::Id,
+    }
+
+    let image_bytes = include_bytes!("../assets/images/airplane-icon.png");
+
+    let airplane_image = load_image(&display, image_bytes);
+    let (w, h) = (
+        airplane_image.get_width(),
+        airplane_image.get_height().unwrap(),
+    );
+    let image_ids = Image_Ids {
+        normal: image_map.insert(airplane_image),
+        hover: image_map.insert(load_image(&display, image_bytes)),
+        press: image_map.insert(load_image(&display, image_bytes)),
+    };
+
     let noto_sans_ttf = include_bytes!("../assets/fonts/NotoSans/NotoSans-Regular.ttf");
+
     let font = Font::from_bytes(noto_sans_ttf).expect("Failed to decode font");
     ui.fonts.insert(font);
 
@@ -145,7 +170,7 @@ pub fn run_app() {
                         .font_size(12)
                         .set(ids.fps_logger, ui);
 
-                    for _clicks in CircularButton::new()
+                    if let Some(_clicks) = CircularButton::image(image_ids.normal)
                         .color(conrod_core::color::WHITE)
                         .top_right()
                         .w_h(50.0, 50.0)
@@ -157,6 +182,8 @@ pub fn run_app() {
                     }
 
                     // Request redraw if the `Ui` has changed.
+                    //
+
                     display.gl_window().window().request_redraw();
                 }
             }
@@ -178,4 +205,14 @@ pub fn run_app() {
             _ => {}
         }
     })
+}
+// Load an image from our assets folder as a texture we can draw to the screen.
+fn load_image(display: &glium::Display, bytes: &[u8]) -> glium::texture::Texture2d {
+    let rgba_image = image::load_from_memory(bytes).unwrap().to_rgba();
+    let image_dimensions = rgba_image.dimensions();
+    let raw_image = glium::texture::RawImage2d::from_raw_rgba_reversed(
+        &rgba_image.into_raw(),
+        image_dimensions,
+    );
+    glium::texture::Texture2d::new(display, raw_image).unwrap()
 }
