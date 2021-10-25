@@ -10,30 +10,46 @@ use conrod_core::{
     widget::{self, button::ImageIds},
     Colorable, Labelable, Positionable, Sizeable, Widget,
 };
+use conrod_core::{
+    text::Font, widget, widget_ids, Colorable, Labelable, Positionable, Sizeable, Widget,
+};
+use glam::DVec2;
 use glium::Surface;
+use tile_cache::TileCache;
+
+use crate::button_widget::CircularButton;
+
+mod map;
+mod map_renderer;
+mod tile_cache;
+mod tile_requester;
 
 mod button_widget;
 mod support;
+mod util;
 
-const WIDTH: u32 = 1000;
+mod button_widget;
+
 const HEIGHT: u32 = 1000;
+const WIDTH: u32 = 1280;
+const HEIGHT: u32 = 720;
 
+const MAX_ZOOM_LEVEL: u32 = 20;
+
+widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], circular_button });
 fn main() {
     // Create our UI's event loop
     let event_loop = glium::glutin::event_loop::EventLoop::new();
-
-    // Build the window
     let window = glium::glutin::window::WindowBuilder::new()
         .with_title("Conrod Window")
         .with_inner_size(glium::glutin::dpi::LogicalSize::new(WIDTH, HEIGHT));
 
     let context = glium::glutin::ContextBuilder::new()
-        .with_vsync(true)
+        .with_vsync(false)
         .with_multisampling(4);
 
     let display = glium::Display::new(window, context, &event_loop).unwrap();
 
-    // Construct our "UI" to hold our widgets/primitives
     let mut ui = conrod_core::UiBuilder::new([WIDTH as f64, HEIGHT as f64]).build();
 
     // Generate our widget identifiers
@@ -57,33 +73,75 @@ fn main() {
 
     // A type used for converting `conrod_core::render::Primitives` into `Command`s that can be used
     // for drawing to the glium `Surface`.
+    let mut ids = Ids::new(ui.widget_id_generator());
+
+    let mut image_map: conrod_core::image::Map<glium::Texture2d> = conrod_core::image::Map::new();
+
+    let noto_sans_ttf = include_bytes!("../assets/fonts/NotoSans/NotoSans-Regular.ttf");
+    let font = Font::from_bytes(noto_sans_ttf).expect("Failed to decode font");
+    ui.fonts.insert(font);
+
     let mut renderer = conrod_glium::Renderer::new(&display).unwrap();
 
-    // The image map describing each of our widget->image mappings (in our case, none).
-    let image_map = conrod_core::image::Map::<glium::texture::Texture2d>::new();
+    let mut last_time = std::time::Instant::now();
+    let mut frame_time_ms = 0.0;
+
+    let runtime = tokio::runtime::Runtime::new().expect("Unable to create Tokio runtime!");
+
+    let mut tile_cache = TileCache::new(&runtime);
 
     let mut should_update_ui = true;
+    let mut viewer = map::TileView::new(0.0, 0.0, 2.0, 1080 / 2);
+    let mut last_cursor_pos: Option<DVec2> = None;
+    let mut left_pressed = false;
+
     event_loop.run(move |event, _, control_flow| {
+        use glium::glutin::event::{
+            ElementState, Event, MouseButton, MouseScrollDelta, VirtualKeyCode, WindowEvent,
+        };
         // Break from the loop upon `Escape` or closed window.
-        match &event {
-            glium::glutin::event::Event::WindowEvent { event, .. } => match event {
+        if let Event::WindowEvent { event, .. } = &event {
+            match event {
                 // Break from the loop upon `Escape`.
-                glium::glutin::event::WindowEvent::CloseRequested
-                | glium::glutin::event::WindowEvent::KeyboardInput {
+                WindowEvent::CloseRequested
+                | WindowEvent::KeyboardInput {
                     input:
                         glium::glutin::event::KeyboardInput {
-                            virtual_keycode: Some(glium::glutin::event::VirtualKeyCode::Escape),
+                            virtual_keycode: Some(VirtualKeyCode::Escape),
                             ..
                         },
                     ..
                 } => *control_flow = glium::glutin::event_loop::ControlFlow::Exit,
+                WindowEvent::MouseWheel { delta, .. } => {
+                    let zoom_change = match delta {
+                        MouseScrollDelta::LineDelta(_x, y) => *y as f64,
+                        MouseScrollDelta::PixelDelta(data) => data.y / 100.0,
+                    };
+                    let zoom_change = (-zoom_change / 6.0).clamp(-0.5, 0.5);
+                    viewer.multiply_zoom(1.0 + zoom_change);
+                }
+                WindowEvent::CursorMoved { position, .. } => {
+                    let position = DVec2::new(position.x, position.y);
+                    if let Some(last) = last_cursor_pos {
+                        let delta = (last - position).clamp_length_max(300.0);
+                        if left_pressed {
+                            viewer.move_camera_pixels(delta);
+                        }
+                    }
+
+                    last_cursor_pos = Some(position);
+                }
+                WindowEvent::MouseInput { button, state, .. } => {
+                    if matches!(button, MouseButton::Left) {
+                        left_pressed = matches!(state, ElementState::Pressed);
+                    }
+                }
                 _ => {}
-            },
-            _ => {}
+            }
         }
 
         // Use the `winit` backend feature to convert the winit event to a conrod one.
-        if let Some(event) = support::convert_event(&event, &display.gl_window().window()) {
+        if let Some(event) = support::convert_event(&event, display.gl_window().window()) {
             ui.handle_event(event);
             should_update_ui = true;
         }
@@ -91,7 +149,7 @@ fn main() {
         match &event {
             glium::glutin::event::Event::MainEventsCleared => {
                 if should_update_ui {
-                    should_update_ui = false;
+                    // should_update_ui = false;
 
                     // Set the widgets.
                     let ui = &mut ui.set_widgets();
@@ -105,21 +163,45 @@ fn main() {
                         .set(ids.circle_button, ui)
                     {
                         println!("Dr. T is awesome, That is why he will curve the Test");
-                    }
+                    map_renderer::draw(
+                        &mut tile_cache,
+                        &viewer,
+                        &display,
+                        &mut image_map,
+                        &mut ids,
+                        ui,
+                    );
 
+                    let frame_time_str = format!(
+                        "FT: {:.2}, FPS: {}",
+                        frame_time_ms,
+                        (1000.0 / frame_time_ms) as u32
+                    );
+
+                    widget::Text::new(frame_time_str.as_str())
+                        .top_left()
+                        .color(conrod_core::color::WHITE)
+                        .justify(conrod_core::text::Justify::Right)
+                        .font_size(12)
+                        .set(ids.fps_logger, ui);
                     // Request redraw if the `Ui` has changed.
                     display.gl_window().window().request_redraw();
                 }
             }
             glium::glutin::event::Event::RedrawRequested(_) => {
-                // Draw the `Ui` if it has changed.
+                //render and swap buffers
                 let primitives = ui.draw();
 
                 renderer.fill(&display, primitives, &image_map);
                 let mut target = display.draw();
-                target.clear_color(0.0, 0.0, 0.0, 1.0);
+                target.clear_color(0.21, 0.32, 0.4, 1.0);
                 renderer.draw(&display, &mut target, &image_map).unwrap();
                 target.finish().unwrap();
+
+                //Time calculations
+                let now = std::time::Instant::now();
+                frame_time_ms = (now - last_time).as_nanos() as f64 / 1_000_000.0;
+                last_time = now;
             }
             _ => {}
         }

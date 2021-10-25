@@ -8,6 +8,11 @@ use conrod_core::{image, Sizeable};
 use conrod_core::{Borderable, UiCell};
 
 use conrod_core::position;
+use conrod_core::{
+    self, text, widget, widget_ids, Color, Colorable, FontSize, Labelable, Positionable, Scalar,
+    Widget,
+};
+use conrod_core::{WidgetCommon, WidgetStyle};
 
 ///Circular Button Implementation.
 #[derive(WidgetCommon)]
@@ -55,6 +60,8 @@ pub struct Style {
 //Here we will making a widget with Circle and Text for the label
 //
 //This is how we generate one
+=======
+//This is how we generate it
 widget_ids! {
     struct TextIds{
         circle,
@@ -79,6 +86,7 @@ impl<'a> CircularButton<'a> {
     }
 
     ///Specify type of font used
+    #[allow(dead_code)]
     pub fn label_font_id(mut self, font_id: conrod_core::text::font::Id) -> Self {
         self.style.label_font_id = Some(Some(font_id));
         self
