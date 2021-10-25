@@ -7,9 +7,9 @@ use conrod_core::{image, Sizeable};
 
 use conrod_core::{WidgetCommon, WidgetStyle};
 
-///This is for images Ids
+///Image Id to communicate with the OwnImageIds.
 ///
-///In case the image needs to change when being hovered or pressed
+///In case the image needs to change when being hovered or pressed.
 pub struct ImageId {
     ///Image Id for when the image is not doing anything
     pub normal: conrod_core::image::Id,
@@ -19,7 +19,7 @@ pub struct ImageId {
     pub press: conrod_core::image::Id,
 }
 
-///Circular Button Implementation.
+///The structure of a Button.
 #[derive(WidgetCommon)]
 pub struct CircularButton<'a, S> {
     /// An object that handles some of the dirty work of rendering a GUI. We don't
@@ -80,7 +80,7 @@ widget_ids! {
 
 widget_ids! {
     ///Widget Id for Image
-    pub struct OwnImageIds{
+    pub struct CircularImageIds{
         circle,
         image,
     }
@@ -93,7 +93,7 @@ pub struct TextState {
 
 ///Representation of Circle with Image
 pub struct ImageState {
-    ids: OwnImageIds,
+    ids: CircularImageIds,
 }
 
 impl<'a, S> CircularButton<'a, S> {
@@ -115,6 +115,7 @@ impl<'a, S> CircularButton<'a, S> {
 }
 
 impl<'a> CircularButton<'a, Image> {
+    ///Default constructor for an image
     pub fn image(image_id: conrod_core::image::Id) -> Self {
         CircularButton {
             common: widget::CommonBuilder::default(),
@@ -185,7 +186,7 @@ impl<'a> Widget for CircularButton<'a, Image> {
 
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
         ImageState {
-            ids: OwnImageIds::new(id_gen),
+            ids: CircularImageIds::new(id_gen),
         }
     }
 
