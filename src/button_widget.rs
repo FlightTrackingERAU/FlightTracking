@@ -7,7 +7,7 @@ use conrod_core::{image, Sizeable};
 
 use conrod_core::{WidgetCommon, WidgetStyle};
 
-///Image Id to communicate with the OwnImageIds.
+///Image Id to communicate with the CircularImageIds.
 ///
 ///In case the image needs to change when being hovered or pressed.
 pub struct ImageId {
