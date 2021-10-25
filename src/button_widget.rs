@@ -1,13 +1,23 @@
-use conrod_core::widget::button::{Flat, FlatIds, Image, ImageColor, ImageIds};
+use conrod_core::widget::button::{Flat, Image, ImageColor};
 use conrod_core::{
-    self, text, widget, widget::button, widget_ids, Color, Colorable, FontSize, Labelable, Point,
-    Positionable, Scalar, Widget,
+    self, text, widget, widget_ids, Color, Colorable, FontSize, Labelable, Positionable, Scalar,
+    Widget,
 };
 use conrod_core::{image, Sizeable};
-use conrod_core::{Borderable, UiCell};
 
-use conrod_core::position;
 use conrod_core::{WidgetCommon, WidgetStyle};
+
+///This is for images Ids
+///
+///In case the image needs to change when being hovered or pressed
+pub struct ImageId {
+    ///Image Id for when the image is not doing anything
+    pub normal: conrod_core::image::Id,
+    ///Image Id for when the image is being hovered
+    pub hover: conrod_core::image::Id,
+    ///Image Id for when the image is being pressed
+    pub press: conrod_core::image::Id,
+}
 
 ///Circular Button Implementation.
 #[derive(WidgetCommon)]
@@ -61,6 +71,7 @@ pub struct Style {
 //This is how we generate one
 //This is how we generate it
 widget_ids! {
+    ///Widget Id for Text(Flat Circle)
     pub struct TextIds{
         circle,
         text,
@@ -68,6 +79,7 @@ widget_ids! {
 }
 
 widget_ids! {
+    ///Widget Id for Image
     pub struct OwnImageIds{
         circle,
         image,

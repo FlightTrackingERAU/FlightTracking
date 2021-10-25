@@ -1,9 +1,6 @@
 use conrod_core::{
     text::Font,
-    widget::{
-        self,
-        button::{Flat, ImageIds},
-    },
+    widget::{self},
     widget_ids, Colorable, Labelable, Positionable, Sizeable, Widget,
 };
 use glam::DVec2;
@@ -29,7 +26,7 @@ const HEIGHT: u32 = 720;
 
 const MAX_ZOOM_LEVEL: u32 = 20;
 
-widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], circular_button ,airplane_image, image_button});
+widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], weather_button , airplane_button});
 
 pub fn run_app() {
     // Create our UI's event loop
@@ -51,25 +48,9 @@ pub fn run_app() {
 
     let mut image_map: conrod_core::image::Map<glium::Texture2d> = conrod_core::image::Map::new();
 
-    struct Image_Ids {
-        normal: conrod_core::image::Id,
-        hover: conrod_core::image::Id,
-        press: conrod_core::image::Id,
-    }
+    let airplane_image_bytes = include_bytes!("../assets/images/airplane-icon.png");
 
-    let image_bytes = include_bytes!("../assets/images/airplane-icon.png");
-
-    let airplane_image = load_image(&display, image_bytes);
-    let (w, h) = (
-        airplane_image.get_width(),
-        airplane_image.get_height().unwrap(),
-    );
-    let image_ids = Image_Ids {
-        normal: image_map.insert(airplane_image),
-        hover: image_map.insert(load_image(&display, image_bytes)),
-        press: image_map.insert(load_image(&display, image_bytes)),
-    };
-
+    let airplane_ids = return_image_essentials(&display, airplane_image_bytes, &mut image_map);
     let noto_sans_ttf = include_bytes!("../assets/fonts/NotoSans/NotoSans-Regular.ttf");
 
     let font = Font::from_bytes(noto_sans_ttf).expect("Failed to decode font");
@@ -170,13 +151,13 @@ pub fn run_app() {
                         .font_size(12)
                         .set(ids.fps_logger, ui);
 
-                    if let Some(_clicks) = CircularButton::image(image_ids.normal)
+                    if let Some(_clicks) = CircularButton::image(airplane_ids.normal)
                         .color(conrod_core::color::WHITE)
                         .top_right()
                         .w_h(50.0, 50.0)
                         .label_color(conrod_core::color::WHITE)
                         .label("A")
-                        .set(ids.circular_button, ui)
+                        .set(ids.airplane_button, ui)
                     {
                         println!("Dr.T is awesome, That is why he will curve the Test");
                     }
@@ -205,6 +186,24 @@ pub fn run_app() {
             _ => {}
         }
     })
+}
+
+//Function to return the Id for images
+//Must convert image path to bytes
+fn return_image_essentials(
+    display: &glium::Display,
+    bytes: &[u8],
+    image_map: &mut conrod_core::image::Map<glium::Texture2d>,
+) -> ImageId {
+    let image_2d = load_image(&display, bytes);
+
+    let image_ids = ImageId {
+        normal: image_map.insert(image_2d),
+        hover: image_map.insert(load_image(&display, bytes)),
+        press: image_map.insert(load_image(&display, bytes)),
+    };
+
+    image_ids
 }
 // Load an image from our assets folder as a texture we can draw to the screen.
 fn load_image(display: &glium::Display, bytes: &[u8]) -> glium::texture::Texture2d {
