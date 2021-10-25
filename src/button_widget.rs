@@ -204,14 +204,16 @@ impl<'a> Widget for CircularButton<'a, Image> {
         } = args;
 
         let CircularButton {
-            maybe_label, show, ..
+            maybe_label: _,
+            show,
+            ..
         } = self;
 
         //Initiate image
         let Image {
             image_id,
-            hover_image_id,
-            press_image_id,
+            hover_image_id: _,
+            press_image_id: _,
             color,
             src_rect,
         } = show;
@@ -328,7 +330,7 @@ impl<'a> Widget for CircularButton<'a, Flat> {
             .set(state.ids.circle, ui);
 
         //Instantiate label
-        if let Some(ref label) = self.maybe_label {
+        if let Some(label) = self.maybe_label {
             let label_color = style.label_color(&ui.theme);
             let font_size = style.label_font_size(&ui.theme);
             let font_id = style.label_font_id(&ui.theme).or(ui.fonts.ids().next());
@@ -343,6 +345,15 @@ impl<'a> Widget for CircularButton<'a, Flat> {
         }
 
         event
+    }
+}
+
+///Uses CircularButton<Flat> constructor as default constructor
+///
+///This new() would only happen if the type of button is not specified
+impl<'a> Default for CircularButton<'a, Flat> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

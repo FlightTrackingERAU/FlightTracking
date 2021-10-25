@@ -195,15 +195,13 @@ fn return_image_essentials(
     bytes: &[u8],
     image_map: &mut conrod_core::image::Map<glium::Texture2d>,
 ) -> ImageId {
-    let image_2d = load_image(&display, bytes);
+    let image_2d = load_image(display, bytes);
 
-    let image_ids = ImageId {
+    ImageId {
         normal: image_map.insert(image_2d),
-        hover: image_map.insert(load_image(&display, bytes)),
-        press: image_map.insert(load_image(&display, bytes)),
-    };
-
-    image_ids
+        hover: image_map.insert(load_image(display, bytes)),
+        press: image_map.insert(load_image(display, bytes)),
+    }
 }
 // Load an image from our assets folder as a texture we can draw to the screen.
 fn load_image(display: &glium::Display, bytes: &[u8]) -> glium::texture::Texture2d {
