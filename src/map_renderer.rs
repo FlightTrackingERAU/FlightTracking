@@ -13,7 +13,6 @@ pub fn draw(
     //Or value is okay here because `tile_size()` only returns `None` if no tiles are cached, which
     //only happens the first few frames, therefore this value doesn't need to be accurate
     let tile_size = tile_cache.tile_size().unwrap_or(256) / 2;
-    println!("Using size: {}", tile_size);
 
     let it = view.tile_iter(tile_size, ui.win_w as u32, ui.win_h as u32);
     let size = it.tile_size;

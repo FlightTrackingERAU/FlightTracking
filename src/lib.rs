@@ -1,5 +1,7 @@
 use conrod_core::{
-    text::Font, widget, widget_ids, Colorable, Labelable, Positionable, Sizeable, Widget,
+    text::Font,
+    widget::{self},
+    widget_ids, Colorable, Labelable, Positionable, Sizeable, Widget,
 };
 use glam::DVec2;
 use glium::Surface;
@@ -24,7 +26,7 @@ const HEIGHT: u32 = 720;
 
 const MAX_ZOOM_LEVEL: u32 = 20;
 
-widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], circular_button });
+widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], weather_button , airplane_button});
 
 pub fn run_app() {
     // Create our UI's event loop
@@ -46,7 +48,11 @@ pub fn run_app() {
 
     let mut image_map: conrod_core::image::Map<glium::Texture2d> = conrod_core::image::Map::new();
 
+    let airplane_image_bytes = include_bytes!("../assets/images/airplane-icon.png");
+
+    let airplane_ids = return_image_essentials(&display, airplane_image_bytes, &mut image_map);
     let noto_sans_ttf = include_bytes!("../assets/fonts/NotoSans/NotoSans-Regular.ttf");
+
     let font = Font::from_bytes(noto_sans_ttf).expect("Failed to decode font");
     ui.fonts.insert(font);
 
@@ -145,18 +151,20 @@ pub fn run_app() {
                         .font_size(12)
                         .set(ids.fps_logger, ui);
 
-                    for _clicks in CircularButton::new()
+                    if let Some(_clicks) = CircularButton::image(airplane_ids.normal)
                         .color(conrod_core::color::WHITE)
                         .top_right()
                         .w_h(50.0, 50.0)
                         .label_color(conrod_core::color::WHITE)
                         .label("A")
-                        .set(ids.circular_button, ui)
+                        .set(ids.airplane_button, ui)
                     {
                         println!("Dr.T is awesome, That is why he will curve the Test");
                     }
 
                     // Request redraw if the `Ui` has changed.
+                    //
+
                     display.gl_window().window().request_redraw();
                 }
             }
@@ -178,4 +186,30 @@ pub fn run_app() {
             _ => {}
         }
     })
+}
+
+//Function to return the Id for images
+//Must convert image path to bytes
+fn return_image_essentials(
+    display: &glium::Display,
+    bytes: &[u8],
+    image_map: &mut conrod_core::image::Map<glium::Texture2d>,
+) -> ImageId {
+    let image_2d = load_image(display, bytes);
+
+    ImageId {
+        normal: image_map.insert(image_2d),
+        hover: image_map.insert(load_image(display, bytes)),
+        press: image_map.insert(load_image(display, bytes)),
+    }
+}
+// Load an image from our assets folder as a texture we can draw to the screen.
+fn load_image(display: &glium::Display, bytes: &[u8]) -> glium::texture::Texture2d {
+    let rgba_image = image::load_from_memory(bytes).unwrap().to_rgba();
+    let image_dimensions = rgba_image.dimensions();
+    let raw_image = glium::texture::RawImage2d::from_raw_rgba_reversed(
+        &rgba_image.into_raw(),
+        image_dimensions,
+    );
+    glium::texture::Texture2d::new(display, raw_image).unwrap()
 }
