@@ -1,15 +1,23 @@
 use conrod_core::{
-    widget::{Image, Line, Rectangle, Text},
+    widget::{Image, Line, Text},
     Colorable, Positionable, Sizeable, UiCell, Widget,
 };
 
 use crate::tile_cache::{TileCache, TileId};
 
-// The width and height of a tile in pixels
-const TILE_SIZE: u32 = 256;
-
-fn world_to_pixel_x(world_x: f64, ui: &mut UiCell, it: &crate::map::TileViewIterator) -> f64 {
-    0.0
+fn world_x_to_pixel_x(
+    world_x: f64,
+    viewport: &crate::map::WorldViewport,
+    window_width: f64,
+) -> f64 {
+    let half_width = window_width / 2.0;
+    crate::util::map(
+        viewport.top_left.x,
+        viewport.bottom_right.x,
+        world_x,
+        -half_width,
+        half_width,
+    )
 }
 
 fn world_y_to_pixel_y(
@@ -27,6 +35,47 @@ fn world_y_to_pixel_y(
     )
 }
 
+/// Returns how many degrees should between lines given the viewport range (in world coordinates), and the size
+/// of the window, either width or height, depending on which dimension these lines are for
+fn line_distance_for_viewport_degrees(world_range: f64, dimension_size: f64) -> f64 {
+    // A neive approximation is ok here since we are only determining the distance between lines
+    let range_degrees = world_range * 180.0;
+
+    // Range in degrees, adjusted for screen size
+    let mapped_range = range_degrees * dimension_size / 500.0;
+    const DISTANCE_SCALE: f64 = 3.0;
+
+    // Define nice distance values between lines for large distances
+    let mapping = [45.0, 15.0, 5.0, 2.0, 1.0];
+    for distance in mapping {
+        let min_range = distance * DISTANCE_SCALE;
+        if mapped_range > min_range {
+            return distance;
+        }
+    }
+    //TODO: Make smaller increments
+    let power = (mapped_range / DISTANCE_SCALE).log10();
+    let part = power.rem_euclid(1.0);
+    //We know the scale and where the number falls within the exponential range
+    //so use math to find the correct spacing
+
+    let int_power = power.ceil() as i32;
+    if part >= 0.5 {
+        return 0.5 * 10.0f64.powi(int_power);
+    }
+
+    if part >= 0.2 {
+        return 0.2 * 10.0f64.powi(int_power);
+    }
+
+    return 0.1 * 10.0f64.powi(int_power);
+}
+
+fn world_width_from_longitude(lng: f64) -> f64 {
+    // The world is 360 degrees around, and in world coordinates, 1.0 units around
+    lng / 360.0
+}
+
 pub fn draw(
     tile_cache: &mut TileCache,
     view: &crate::map::TileView,
@@ -38,7 +87,6 @@ pub fn draw(
     //Or value is okay here because `tile_size()` only returns `None` if no tiles are cached, which
     //only happens the first few frames, therefore this value doesn't need to be accurate
     let tile_size = tile_cache.tile_size().unwrap_or(256) / 2;
-    println!("Using size: {}", tile_size);
 
     let it = view.tile_iter(tile_size, ui.win_w, ui.win_h);
     let size = it.tile_size;
@@ -87,29 +135,106 @@ pub fn draw(
         }
     }
 
-    //Render latitude / longitude lines
-    //Render 1 latitude line for approx every 200 vertical pixels
-    let wanted_lat_lines = (ui.win_h / 200.0).ceil();
     let viewport = view.get_world_viewport(ui.win_w, ui.win_h);
-    let lat_height = viewport.bottom_right.y - viewport.top_left.y;
 
-    //Make lines always aligned with a muliple of 2 world coordinates, and always start at the same
-    //point
-    let lat_line_distance = crate::util::round_up_pow2(lat_height / wanted_lat_lines);
-    let min_lat_world =
-        crate::util::round_up(viewport.top_left.y, lat_line_distance) - lat_line_distance;
+    //Lines of latitude
+    let lat_line_distance =
+        line_distance_for_viewport_degrees(viewport.bottom_right.y - viewport.top_left.y, ui.win_h);
 
-    let lat_lines = ((viewport.bottom_right.y - min_lat_world) / lat_line_distance).ceil() as usize;
+    let lat_top = crate::util::latitude_from_y(viewport.top_left.y.rem_euclid(1.0));
+    let lat_bottom = crate::util::latitude_from_y(viewport.bottom_right.y.rem_euclid(1.0));
+    let lat_start = crate::util::modulo_ceil(lat_top, lat_line_distance);
+
+    let lat_lines = ((lat_top - lat_bottom) / lat_line_distance + 1.0).ceil() as usize;
+
     ids.latitude_lines
         .resize(lat_lines, &mut ui.widget_id_generator());
+    ids.latitude_text
+        .resize(lat_lines, &mut ui.widget_id_generator());
 
+    let log10_line_distance = lat_line_distance.log10();
+    let precision = if log10_line_distance < 0.0 {
+        (-log10_line_distance.floor()) as usize
+    } else {
+        0usize
+    };
+
+    //Latitude decreases as world y increases
     for i in 0..lat_lines {
-        let y = min_lat_world + i as f64 * lat_line_distance;
-        let lat = crate::util::latitude_from_y(y.rem_euclid(1.0));
-        let y_pixel = world_y_to_pixel_y(y, &viewport, ui.win_h);
-        println!("{} lat at y {}, pixel {}", lat, y, y_pixel);
-        Line::new([0.0, y_pixel], [ui.win_w, y_pixel])
-            .color(conrod_core::color::WHITE)
+        let lat = lat_start - i as f64 * lat_line_distance;
+        let world_y = crate::util::y_from_latitude(lat);
+        let y_pixel = world_y_to_pixel_y(world_y, &viewport, ui.win_h);
+
+        let half_width = ui.win_w / 2.0;
+        Line::new([-half_width, y_pixel], [half_width, y_pixel])
+            //Why does this call need to happen?
+            .x_y(0.0, 0.0)
+            .color(conrod_core::color::BLACK.alpha(0.5))
+            .thickness(1.5)
             .set(ids.latitude_lines[i], ui);
+
+        let text = if lat > 0.0 {
+            format!("{:.1$}°N", lat, precision)
+        } else {
+            format!("{:.1$}°S", lat, precision)
+        };
+        Text::new(text.as_str())
+            .top_right()
+            .y(y_pixel)
+            .color(conrod_core::color::WHITE)
+            .font_size(12)
+            .set(ids.latitude_text[i], ui);
+    }
+
+    //Lines of longitude
+    let lng_line_distance =
+        line_distance_for_viewport_degrees(viewport.bottom_right.x - viewport.top_left.x, ui.win_w);
+
+    let line_distance_world = world_width_from_longitude(lng_line_distance);
+    let lng_start = crate::util::modulo_ceil(
+        crate::util::longitude_from_x(viewport.top_left.x.rem_euclid(1.0)),
+        lng_line_distance,
+    );
+    let x_start = crate::util::modulo_ceil(viewport.top_left.x, line_distance_world);
+
+    let lng_lines = ((viewport.bottom_right.x - viewport.top_left.x) / line_distance_world + 1.0)
+        .ceil() as usize;
+
+    ids.longitude_lines
+        .resize(lng_lines, &mut ui.widget_id_generator());
+    ids.longitude_text
+        .resize(lng_lines, &mut ui.widget_id_generator());
+
+    let log10_line_distance = lng_line_distance.log10();
+    let precision = if log10_line_distance < 0.0 {
+        (-log10_line_distance.floor()) as usize
+    } else {
+        0usize
+    };
+
+    //Longitude increases as world x increases
+    for i in 0..lng_lines {
+        let lng = lng_start + i as f64 * lng_line_distance;
+        let world_x = x_start + i as f64 * line_distance_world;
+        let x_pixel = world_x_to_pixel_x(world_x, &viewport, ui.win_h); 
+
+        let half_height = ui.win_h / 2.0;
+        Line::new([x_pixel, -half_height], [x_pixel, half_height])
+            .x_y(0.0, 0.0)
+            .color(conrod_core::color::BLACK.alpha(0.5))
+            .thickness(1.5)
+            .set(ids.longitude_lines[i], ui);
+
+        let text = if lng > 0.0 {
+            format!("{:.1$}°N", lng, precision)
+        } else {
+            format!("{:.1$}°S", lng, precision)
+        };
+        Text::new(text.as_str())
+            .bottom_right()
+            .x(x_pixel)
+            .color(conrod_core::color::WHITE)
+            .font_size(12)
+            .set(ids.longitude_text[i], ui);
     }
 }

@@ -130,7 +130,9 @@ impl TileView {
         screen_width: f64,
         screen_height: f64,
     ) -> TileViewIterator {
-        let tile_zoom = self.tile_zoom_level(tile_size);
+        //Tile zoom maxes out at 20.
+        //TODO: Make this configurable in case tile providers have different maxes
+        let tile_zoom = self.tile_zoom_level(tile_size).min(20);
         let max_tile = 2u32.pow(tile_zoom);
 
         //Tile size is the size of a tile in pixels based on the current zoom level
@@ -396,7 +398,7 @@ mod tests {
 
     #[test]
     fn tile_view_high_res() {
-        let window_width = 1000;
+        let window_width = 1000.0;
         let tile_width = 256;
         let mut view = TileView::new(0.0, 0.0, 0.0, window_width);
         for i in 0..100000 {

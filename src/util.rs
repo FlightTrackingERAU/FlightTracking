@@ -75,7 +75,7 @@ where
 /// Takes a latitude in degrees and converts it to a world y coordinate using the mercator
 /// projection.
 pub fn y_from_latitude(lat_degrees: f64) -> f64 {
-    //TODO: Make sure this is the correct function. The inverse looks the same as the main function?
+    //Math visible at:
     //https://www.desmos.com/calculator/qz3psqkddu
     use std::f64::consts::PI;
 
@@ -87,21 +87,10 @@ pub fn y_from_latitude(lat_degrees: f64) -> f64 {
 /// Takes a y in world coordinates and converts it to latitude in degrees using the mercator
 /// projection.
 pub fn latitude_from_y(y: f64) -> f64 {
-    let mercator_latitude_max = 85.05113;
-    use std::f64::consts::FRAC_PI_2;
+    use std::f64::consts::PI;
 
-    let input = map(0.0, 1.0, y, -FRAC_PI_2, FRAC_PI_2);
-
-    let _ = map(0.0, 1.0, 0.0, mercator_latitude_max, -mercator_latitude_max);
-    let output = f64::asin(f64::tanh(input));
-    let output_max = 1.1608753909688045;
-    map(
-        -output_max,
-        output_max,
-        output,
-        mercator_latitude_max,
-        -mercator_latitude_max,
-    )
+    let output = f64::asin(f64::tanh(map(0.0, 1.0, y, PI, -PI)));
+    output * 180.0 / PI
 }
 
 /// Takes a latitude in degrees and converts it to a world y coordinate using the mercator
@@ -136,7 +125,13 @@ mod tests {
 
     fn ish(value: f64, expected: f64) {
         if (value - expected).abs() > 0.00001 {
-            panic!("{} expected: {} out of range", expected, value);
+            panic!("Expected: {}, {} is of range", expected, value);
+        }
+    }
+
+    fn ish_bounded(value: f64, expected: f64, bound: f64) {
+        if (value - expected).abs() > bound {
+            panic!("Expected: {}, {} is of range", expected, value);
         }
     }
 
@@ -145,6 +140,9 @@ mod tests {
         ish(y_from_latitude(0.0), 0.5);
         ish(y_from_latitude(85.05113), 0.0);
         ish(y_from_latitude(-85.05113), 1.0);
+
+        //66.5 is the latitude at the top of iceland, between the top two tiles at zoom level 2
+        ish_bounded(y_from_latitude(66.5), 0.25, 0.05);
     }
 
     #[test]
@@ -152,6 +150,8 @@ mod tests {
         ish(latitude_from_y(0.5), 0.0);
         ish(latitude_from_y(0.0), 85.05113);
         ish(latitude_from_y(1.0), -85.05113);
+
+        ish_bounded(latitude_from_y(0.25), 66.5, 0.05);
     }
 
     #[test]

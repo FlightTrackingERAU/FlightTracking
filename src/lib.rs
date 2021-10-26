@@ -24,7 +24,7 @@ const HEIGHT: u32 = 720;
 
 const MAX_ZOOM_LEVEL: u32 = 20;
 
-widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], circular_button, latitude_lines[] });
+widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], circular_button, latitude_lines[], latitude_text[], longitude_lines[], longitude_text[] });
 
 pub fn run_app() {
     // Create our UI's event loop
