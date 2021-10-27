@@ -1,7 +1,5 @@
 use conrod_core::{
-    text::Font,
-    widget::{self},
-    widget_ids, Colorable, Labelable, Positionable, Sizeable, Widget,
+    text::Font, widget, widget_ids, Colorable, Labelable, Positionable, Sizeable, Widget,
 };
 use glam::DVec2;
 use glium::Surface;
@@ -12,6 +10,7 @@ mod map_renderer;
 mod support;
 mod tile_cache;
 mod tile_requester;
+mod ui_filter;
 mod util;
 
 pub use button_widget::*;
@@ -19,6 +18,7 @@ pub use map::*;
 pub use map_renderer::*;
 pub use tile_cache::*;
 pub use tile_requester::*;
+pub use ui_filter::*;
 pub use util::*;
 
 const WIDTH: u32 = 1280;
@@ -26,7 +26,7 @@ const HEIGHT: u32 = 720;
 
 const MAX_ZOOM_LEVEL: u32 = 20;
 
-widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], weather_button, airplane_button, latitude_lines[], latitude_text[], longitude_lines[], longitude_text[] });
+widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], weather_button, airplane_button, latitude_lines[], latitude_text[], longitude_lines[], longitude_text[], filter_widget });
 
 pub fn run_app() {
     // Create our UI's event loop
@@ -48,9 +48,10 @@ pub fn run_app() {
 
     let mut image_map: conrod_core::image::Map<glium::Texture2d> = conrod_core::image::Map::new();
 
+    //Making airplane image ids
     let airplane_image_bytes = include_bytes!("../assets/images/airplane-icon.png");
-
     let airplane_ids = return_image_essentials(&display, airplane_image_bytes, &mut image_map);
+
     let noto_sans_ttf = include_bytes!("../assets/fonts/NotoSans/NotoSans-Regular.ttf");
 
     let font = Font::from_bytes(noto_sans_ttf).expect("Failed to decode font");
@@ -152,17 +153,30 @@ pub fn run_app() {
                         .set(ids.fps_logger, ui);
 
                     if let Some(_clicks) = CircularButton::image(airplane_ids.normal)
-                        .color(conrod_core::color::WHITE)
-                        .top_right()
+                        .x((ui.win_w / 2.0) * 0.95)
+                        .y((ui.win_h / 2.0) * 0.90)
                         .w_h(50.0, 50.0)
                         .label_color(conrod_core::color::WHITE)
-                        .label("A")
+                        .label("Airplane Button")
                         .set(ids.airplane_button, ui)
                     {
-                        println!("Dr.T is awesome, That is why he will curve the Test");
+                        println!("{:?}", ui.xy_of(ids.airplane_button));
                     }
 
+                    if let Some(_clicks) = FilterButton::new()
+                        .left_from(ids.airplane_button, 50.0)
+                        .y((ui.win_h / 2.0) * 0.90)
+                        .w_h(150.0, 30.0)
+                        .label_color(conrod_core::color::BLACK)
+                        .label_font_size(10)
+                        .label("American Airlines")
+                        .set(ids.filter_widget, ui)
+                    {
+                        println!("{:?}", ui.xy_of(ids.filter_widget));
+                    }
                     // Request redraw if the `Ui` has changed.
+                    //
+                    //
                     //
 
                     display.gl_window().window().request_redraw();
