@@ -216,7 +216,7 @@ pub fn draw(
     for i in 0..lng_lines {
         let lng = lng_start + i as f64 * lng_line_distance;
         let world_x = x_start + i as f64 * line_distance_world;
-        let x_pixel = world_x_to_pixel_x(world_x, &viewport, ui.win_w); 
+        let x_pixel = world_x_to_pixel_x(world_x, &viewport, ui.win_w);
 
         let half_height = ui.win_h / 2.0;
         Line::new([x_pixel, -half_height], [x_pixel, half_height])
