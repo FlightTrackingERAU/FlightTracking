@@ -95,6 +95,11 @@ pub fn draw(
     let tiles_vertically = it.tiles_vertically;
 
     let tiles: Vec<_> = it.collect();
+    {
+        let mut guard = crate::PERF_DATA.lock();
+        guard.tiles_rendered = tiles.len();
+        guard.zoom = zoom_level;
+    }
 
     ids.tiles.resize(tiles.len(), &mut ui.widget_id_generator());
     ids.square_text

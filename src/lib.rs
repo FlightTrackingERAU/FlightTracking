@@ -28,19 +28,7 @@ const MAX_ZOOM_LEVEL: u32 = 20;
 
 widget_ids!(pub struct Ids { debug_menu[], text, viewport, map_images[], squares[], tiles[], square_text[], weather_button, airplane_button, latitude_lines[], latitude_text[], longitude_lines[], longitude_text[], filter_widget });
 
-pub struct TileTypeStats {
-    pub api_secs: running_average::RealTimeRunningAverage<f64>,
-    pub decode_secs: running_average::RealTimeRunningAverage<f64>,
-    pub upload_secs: running_average::RealTimeRunningAverage<f64>,
-}
-
-pub struct PerformanceData {
-    pub tiles_rendered: u32,
-    pub tiles_on_gpu: u32,
-    pub tiles_in_memory: u32,
-    pub satellite: TileTypeStats,
-    pub : TileTypeStats,
-}
+pub use util::PERF_DATA;
 
 pub fn run_app() {
     // Create our UI's event loop
@@ -147,6 +135,8 @@ pub fn run_app() {
                     // Set the widgets.
                     let ui = &mut ui.set_widgets();
 
+                    //========== Draw Map ==========
+
                     map_renderer::draw(
                         &mut tile_cache,
                         &viewer,
@@ -156,14 +146,19 @@ pub fn run_app() {
                         ui,
                     );
 
+                    //========== Draw Debug Text ==========
+                    let data = {
+                        let mut guard = PERF_DATA.lock();
+                        guard.snapshot()
+                    };
+
                     let debug_text = [
                         format!(
                             "FT: {:.2}, FPS: {}",
                             frame_time_ms,
                             (1000.0 / frame_time_ms) as u32
                         ),
-                        format!("Zoom: {}, Tiles: {}", 0, 10,),
-                        format!("Zoom2: {}, Tiles: {}", 0, 10,),
+                        format!("Zoom: {}, Tiles: {}", data.zoom, data.tiles_rendered),
                     ];
                     ids.debug_menu
                         .resize(debug_text.len(), &mut ui.widget_id_generator());
@@ -184,6 +179,8 @@ pub fn run_app() {
                             .set(id, ui);
                         last_id = Some(id);
                     }
+
+                    //========== Draw Buttons ==========
 
                     if let Some(_clicks) = CircularButton::image(airplane_ids.normal)
                         .x((ui.win_w / 2.0) * 0.95)
