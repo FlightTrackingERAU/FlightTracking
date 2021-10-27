@@ -43,7 +43,7 @@ fn line_distance_for_viewport_degrees(world_range: f64, dimension_size: f64) -> 
 
     // Range in degrees, adjusted for screen size
     let mapped_range = range_degrees * 500.0 / dimension_size;
-    const DISTANCE_SCALE: f64 = 3.0;
+    const DISTANCE_SCALE: f64 = 2.0;
 
     // Define nice distance values between lines for large distances
     let mapping = [45.0, 15.0, 5.0, 2.0, 1.0];
@@ -53,7 +53,6 @@ fn line_distance_for_viewport_degrees(world_range: f64, dimension_size: f64) -> 
             return distance;
         }
     }
-    //TODO: Make smaller increments
     let power = (mapped_range / DISTANCE_SCALE).log10();
     let part = power.rem_euclid(1.0);
     //We know the scale and where the number falls within the exponential range
