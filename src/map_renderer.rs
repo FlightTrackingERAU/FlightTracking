@@ -60,15 +60,14 @@ fn line_distance_for_viewport_degrees(world_range: f64, dimension_size: f64) -> 
     //so use math to find the correct spacing
 
     let int_power = power.ceil() as i32;
+
     if part >= 0.5 {
-        return 0.5 * 10.0f64.powi(int_power);
+        0.5 * 10.0f64.powi(int_power)
+    } else if part >= 0.2 {
+        0.2 * 10.0f64.powi(int_power)
+    } else {
+        0.1 * 10.0f64.powi(int_power)
     }
-
-    if part >= 0.2 {
-        return 0.2 * 10.0f64.powi(int_power);
-    }
-
-    return 0.1 * 10.0f64.powi(int_power);
 }
 
 fn world_width_from_longitude(lng: f64) -> f64 {
@@ -95,7 +94,7 @@ pub fn draw(
 
     let tiles_vertically = it.tiles_vertically;
 
-    let tiles: Vec<_> = it.clone().collect();
+    let tiles: Vec<_> = it.collect();
 
     ids.tiles.resize(tiles.len(), &mut ui.widget_id_generator());
     ids.square_text

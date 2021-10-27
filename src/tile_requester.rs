@@ -41,7 +41,7 @@ impl TileRequester {
     }
 
     pub fn tile_size(&self) -> Option<u32> {
-        self.tile_size.lock().unwrap().clone()
+        *self.tile_size.lock().unwrap()
     }
 
     /// Sends a request to get a tile
