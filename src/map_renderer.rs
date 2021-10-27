@@ -42,7 +42,7 @@ fn line_distance_for_viewport_degrees(world_range: f64, dimension_size: f64) -> 
     let range_degrees = world_range * 180.0;
 
     // Range in degrees, adjusted for screen size
-    let mapped_range = range_degrees * dimension_size / 500.0;
+    let mapped_range = range_degrees * 500.0 / dimension_size;
     const DISTANCE_SCALE: f64 = 3.0;
 
     // Define nice distance values between lines for large distances
@@ -176,7 +176,7 @@ pub fn draw(
         let text = if lat > 0.0 {
             format!("{:.1$}°N", lat, precision)
         } else {
-            format!("{:.1$}°S", lat, precision)
+            format!("{:.1$}°S", -lat, precision)
         };
         Text::new(text.as_str())
             .top_right()
@@ -216,7 +216,7 @@ pub fn draw(
     for i in 0..lng_lines {
         let lng = lng_start + i as f64 * lng_line_distance;
         let world_x = x_start + i as f64 * line_distance_world;
-        let x_pixel = world_x_to_pixel_x(world_x, &viewport, ui.win_h); 
+        let x_pixel = world_x_to_pixel_x(world_x, &viewport, ui.win_w); 
 
         let half_height = ui.win_h / 2.0;
         Line::new([x_pixel, -half_height], [x_pixel, half_height])
@@ -226,9 +226,9 @@ pub fn draw(
             .set(ids.longitude_lines[i], ui);
 
         let text = if lng > 0.0 {
-            format!("{:.1$}°N", lng, precision)
+            format!("{:.1$}°E", lng, precision)
         } else {
-            format!("{:.1$}°S", lng, precision)
+            format!("{:.1$}°W", -lng, precision)
         };
         Text::new(text.as_str())
             .bottom_right()
