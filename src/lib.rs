@@ -13,6 +13,7 @@ mod support;
 mod tile_cache;
 mod tile_requester;
 mod util;
+mod tile;
 
 pub use button_widget::*;
 pub use map::*;

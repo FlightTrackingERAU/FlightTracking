@@ -119,7 +119,8 @@ async fn request_loop(
                         println!("Failed to save to {}: {:?}", path, err);
                     }
                     // Create an RGBA image from the JPEG bytes
-                    let image = image::load_from_memory(&tile_bytes).unwrap().into_rgba();
+                    let image =
+                        image::load_from_memory(&tile_bytes).unwrap().into_rgba();
                     //Images must be square
                     assert_eq!(image.width(), image.height());
 
