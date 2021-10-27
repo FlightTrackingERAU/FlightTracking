@@ -41,7 +41,7 @@ impl TileRequester {
     }
 
     pub fn tile_size(&self) -> Option<u32> {
-        self.tile_size.lock().unwrap().clone()
+        *self.tile_size.lock().unwrap()
     }
 
     /// Sends a request to get a tile
@@ -100,7 +100,13 @@ async fn request_loop(
             let tile_tx = tile_tx.clone();
             let tile_size = tile_size.clone();
             tokio::spawn(async move {
+                let start = std::time::Instant::now();
                 if let Ok(tile_bytes) = request.execute().await {
+                    println!(
+                        "tile request took: {} ms",
+                        (std::time::Instant::now() - start).as_micros() as f64 / 1000.0
+                    );
+
                     let path = get_tile_path(tile_id);
                     let parent = std::path::Path::new(&path)
                         .parent()

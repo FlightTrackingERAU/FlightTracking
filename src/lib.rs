@@ -26,7 +26,7 @@ const HEIGHT: u32 = 720;
 
 const MAX_ZOOM_LEVEL: u32 = 20;
 
-widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], weather_button , airplane_button});
+widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], weather_button, airplane_button, latitude_lines[], latitude_text[], longitude_lines[], longitude_text[] });
 
 pub fn run_app() {
     // Create our UI's event loop
@@ -66,7 +66,7 @@ pub fn run_app() {
     let mut tile_cache = TileCache::new(&runtime);
 
     let mut should_update_ui = true;
-    let mut viewer = map::TileView::new(0.0, 0.0, 2.0, 1080 / 2);
+    let mut viewer = map::TileView::new(0.0, 0.0, 2.0, 1080.0 / 2.0);
     let mut last_cursor_pos: Option<DVec2> = None;
     let mut left_pressed = false;
 

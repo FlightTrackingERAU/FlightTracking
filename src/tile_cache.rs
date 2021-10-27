@@ -48,7 +48,7 @@ impl TileCache {
         // GBnoGxmU64rzYqypBLp9
         // VrgC04XoV1a84R5VkUnL
         Self {
-            tile_requester: TileRequester::new("GBnoGxmU64rzYqypBLp9", runtime),
+            tile_requester: TileRequester::new("VrgC04XoV1a84R5VkUnL", runtime),
             hashmaps,
         }
     }
