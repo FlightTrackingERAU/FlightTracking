@@ -71,7 +71,7 @@ async fn request_loop(
     // Can customize the runtime parameters later
     // This uses expect(), because we are already in another thread, we would kind of already be in
     // trouble.
-    let maptiler = Maptiler::new(api_key);
+    let maptiler = Maptiler::new(api_key).expect("Failed to create maptiler TLS backend!");
 
     loop {
         if let Some(tile_id) = request_rx.recv().await {

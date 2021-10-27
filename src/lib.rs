@@ -26,7 +26,21 @@ const HEIGHT: u32 = 720;
 
 const MAX_ZOOM_LEVEL: u32 = 20;
 
-widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], weather_button, airplane_button, latitude_lines[], latitude_text[], longitude_lines[], longitude_text[], filter_widget });
+widget_ids!(pub struct Ids { debug_menu[], text, viewport, map_images[], squares[], tiles[], square_text[], weather_button, airplane_button, latitude_lines[], latitude_text[], longitude_lines[], longitude_text[], filter_widget });
+
+pub struct TileTypeStats {
+    pub api_secs: running_average::RealTimeRunningAverage<f64>,
+    pub decode_secs: running_average::RealTimeRunningAverage<f64>,
+    pub upload_secs: running_average::RealTimeRunningAverage<f64>,
+}
+
+pub struct PerformanceData {
+    pub tiles_rendered: u32,
+    pub tiles_on_gpu: u32,
+    pub tiles_in_memory: u32,
+    pub satellite: TileTypeStats,
+    pub : TileTypeStats,
+}
 
 pub fn run_app() {
     // Create our UI's event loop
@@ -53,9 +67,12 @@ pub fn run_app() {
     let airplane_ids = return_image_essentials(&display, airplane_image_bytes, &mut image_map);
 
     let noto_sans_ttf = include_bytes!("../assets/fonts/NotoSans/NotoSans-Regular.ttf");
+    let noto_sans = Font::from_bytes(noto_sans_ttf).expect("Failed to decode font");
+    let noto_sans = ui.fonts.insert(noto_sans);
 
-    let font = Font::from_bytes(noto_sans_ttf).expect("Failed to decode font");
-    ui.fonts.insert(font);
+    let b612_ttf = include_bytes!("../assets/fonts/B612Mono/B612Mono-Regular.ttf");
+    let b612 = Font::from_bytes(b612_ttf).expect("Failed to decode font");
+    let b612 = ui.fonts.insert(b612);
 
     let mut renderer = conrod_glium::Renderer::new(&display).unwrap();
 
@@ -139,18 +156,34 @@ pub fn run_app() {
                         ui,
                     );
 
-                    let frame_time_str = format!(
-                        "FT: {:.2}, FPS: {}",
-                        frame_time_ms,
-                        (1000.0 / frame_time_ms) as u32
-                    );
+                    let debug_text = [
+                        format!(
+                            "FT: {:.2}, FPS: {}",
+                            frame_time_ms,
+                            (1000.0 / frame_time_ms) as u32
+                        ),
+                        format!("Zoom: {}, Tiles: {}", 0, 10,),
+                        format!("Zoom2: {}, Tiles: {}", 0, 10,),
+                    ];
+                    ids.debug_menu
+                        .resize(debug_text.len(), &mut ui.widget_id_generator());
 
-                    widget::Text::new(frame_time_str.as_str())
-                        .top_left()
-                        .color(conrod_core::color::WHITE)
-                        .justify(conrod_core::text::Justify::Right)
-                        .font_size(12)
-                        .set(ids.fps_logger, ui);
+                    let mut last_id = None;
+                    for (i, text) in debug_text.iter().enumerate() {
+                        let mut gui_text = widget::Text::new(text.as_str());
+                        gui_text = match last_id {
+                            Some(id) => gui_text.y_relative_to(id, -16.0),
+                            None => gui_text.top_left(),
+                        };
+                        let id = ids.debug_menu[i];
+                        gui_text
+                            .color(conrod_core::color::WHITE)
+                            .justify(conrod_core::text::Justify::Right)
+                            .font_size(12)
+                            .font_id(b612)
+                            .set(id, ui);
+                        last_id = Some(id);
+                    }
 
                     if let Some(_clicks) = CircularButton::image(airplane_ids.normal)
                         .x((ui.win_w / 2.0) * 0.95)
