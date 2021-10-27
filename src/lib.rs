@@ -153,7 +153,6 @@ pub fn run_app() {
                         .set(ids.fps_logger, ui);
 
                     if let Some(_clicks) = CircularButton::image(airplane_ids.normal)
-                        .color(conrod_core::color::WHITE)
                         .x((ui.win_w / 2.0) * 0.95)
                         .y((ui.win_h / 2.0) * 0.90)
                         .w_h(50.0, 50.0)
@@ -164,8 +163,7 @@ pub fn run_app() {
                         println!("{:?}", ui.xy_of(ids.airplane_button));
                     }
 
-                    if let Some(_clicks) = FilterWidget::new()
-                        .color(conrod_core::color::WHITE)
+                    if let Some(_clicks) = FilterButton::new()
                         .left_from(ids.airplane_button, 50.0)
                         .y((ui.win_h / 2.0) * 0.90)
                         .w_h(150.0, 30.0)

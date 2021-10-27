@@ -8,7 +8,7 @@ use conrod_core::{WidgetCommon, WidgetStyle};
 
 ///Custom made widget for the FilterButton
 #[derive(WidgetCommon)]
-pub struct FilterWidget<'a> {
+pub struct FilterButton<'a> {
     /// An object that handles some of the dirty work of rendering a GUI. We don't
     /// really have to worry about it.
     #[conrod(common_builder)]
@@ -68,9 +68,9 @@ pub struct FilterWidgetState {
     ids: FilterWidgetIds,
 }
 
-impl<'a> FilterWidget<'a> {
+impl<'a> FilterButton<'a> {
     pub fn new() -> Self {
-        FilterWidget {
+        FilterButton {
             common: widget::CommonBuilder::default(),
             maybe_label: None,
             style: Style::default(),
@@ -124,7 +124,7 @@ impl<'a> FilterWidget<'a> {
     }
 }
 
-impl<'a> Widget for FilterWidget<'a> {
+impl<'a> Widget for FilterButton<'a> {
     type State = FilterWidgetState;
     type Style = Style;
     type Event = Option<()>;
@@ -149,7 +149,7 @@ impl<'a> Widget for FilterWidget<'a> {
             ..
         } = args;
 
-        let FilterWidget { maybe_label, .. } = self;
+        let FilterButton { maybe_label, .. } = self;
 
         let (button_color, event) = {
             let input = ui.widget_input(id);
@@ -160,7 +160,7 @@ impl<'a> Widget for FilterWidget<'a> {
             let color = style.color(&ui.theme);
             let color = input.mouse().map_or(color, |mouse| {
                 if mouse.buttons.left().is_down() {
-                    color.clicked()
+                    conrod_core::color::DARK_GREY
                 } else {
                     color.highlighted()
                 }
@@ -201,7 +201,7 @@ impl<'a> Widget for FilterWidget<'a> {
         event
     }
 }
-impl<'a> Colorable for FilterWidget<'a> {
+impl<'a> Colorable for FilterButton<'a> {
     fn color(mut self, color: conrod_core::Color) -> Self {
         self.style.color = Some(color);
         self
@@ -210,7 +210,7 @@ impl<'a> Colorable for FilterWidget<'a> {
 
 /// Provide the chainable label(), label_color(), and label_font_size()
 /// configuration methods.
-impl<'a> Labelable<'a> for FilterWidget<'a> {
+impl<'a> Labelable<'a> for FilterButton<'a> {
     fn label(mut self, text: &'a str) -> Self {
         self.maybe_label = Some(text);
         self
