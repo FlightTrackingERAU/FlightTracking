@@ -106,13 +106,13 @@ async fn request_loop(
             tokio::spawn(async move {
                 let start = std::time::Instant::now();
                 if let Ok(tile_bytes) = request.execute().await {
-                    {
+                    /*
                         let mut guard = crate::PERF_DATA.lock();
                         guard
                             .satellite
                             .api_secs
                             .add_sample((std::time::Instant::now() - start).as_secs_f32());
-                    }
+                    */
 
                     let path = get_tile_path(tile_id);
                     let parent = std::path::Path::new(&path)
@@ -130,8 +130,7 @@ async fn request_loop(
                     {
                         let mut guard = crate::PERF_DATA.lock();
                         guard
-                            .satellite
-                            .decode_secs
+                            .tile_decode_time
                             .add_sample((std::time::Instant::now() - start).as_secs_f32());
                     }
                     //Images must be square
@@ -139,7 +138,6 @@ async fn request_loop(
 
                     let mut lock = tile_size.lock().unwrap();
                     if lock.is_none() {
-                        println!("Setting size to {}", image.width());
                         *lock = Some(image.width());
                     }
 

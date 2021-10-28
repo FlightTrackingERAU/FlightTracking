@@ -8,11 +8,11 @@ mod button_widget;
 mod map;
 mod map_renderer;
 mod support;
+mod tile;
 mod tile_cache;
 mod tile_requester;
 mod ui_filter;
 mod util;
-mod tile;
 
 pub use button_widget::*;
 pub use map::*;
@@ -153,16 +153,6 @@ pub fn run_app() {
                         guard.snapshot()
                     };
 
-                    let print_api_info = |info: &str, data: &util::ApiTimeDataSnapshot| -> String {
-                        format!(
-                            "{} - Api: {:.1}ms, Decode: {:.2}ms, Upload {:.2}ms",
-                            info,
-                            data.api_secs * 1000.0,
-                            data.decode_secs * 1000.0,
-                            data.upload_secs * 1000.0,
-                        )
-                    };
-
                     let debug_text = [
                         format!(
                             "FT: {:.2}, FPS: {}",
@@ -170,8 +160,11 @@ pub fn run_app() {
                             (1000.0 / frame_time_ms) as u32
                         ),
                         format!("Zoom: {}, Tiles: {}", data.zoom, data.tiles_rendered),
-                        print_api_info("Satellite", &data.satellite),
-                        print_api_info("Weather", &data.weather),
+                        format!(
+                            "Decode: {}ms, Upload: {}ms",
+                            data.tile_decode_time.as_secs_f64() * 1000.0,
+                            data.tile_upload_time.as_secs_f64() * 1000.0
+                        ),
                     ];
                     ids.debug_menu
                         .resize(debug_text.len(), &mut ui.widget_id_generator());
