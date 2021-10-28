@@ -131,7 +131,7 @@ async fn request_loop(
                         let mut guard = crate::PERF_DATA.lock();
                         guard
                             .tile_decode_time
-                            .add_sample((std::time::Instant::now() - start).as_secs_f32());
+                            .add_sample(std::time::Instant::now() - start);
                     }
                     //Images must be square
                     assert_eq!(image.width(), image.height());

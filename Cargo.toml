@@ -10,9 +10,9 @@ description = "An app that displays the path of planes through the country of Un
 license = "MIT"
 
 [dependencies]
-conrod_core = "0.75.0"
-conrod_winit = "0.75.0"
-conrod_glium = "0.75.0"
+conrod_core = "0.75"
+conrod_winit = "0.75"
+conrod_glium = "0.75"
 
 glium = "0.28"
 winit = "0.23"
@@ -23,7 +23,7 @@ num = "0.4"
 lazy_static = "1.0"
 find_folder =  "0.3"
 
-tokio = { version = "1.12.0", features = ["full"]}
+tokio = { version = "1.12", features = ["full"]}
 async-trait = "0.1"
 
 image = "0.22"
@@ -32,4 +32,6 @@ maptiler-cloud = "0.3"
 
 parking_lot = "0.11"
 simple_moving_average = "0.1"
+intmap = "0.7"
+enum-map = "1.1"
 thiserror = "1.0"

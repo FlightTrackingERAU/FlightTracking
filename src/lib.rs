@@ -9,16 +9,13 @@ mod map;
 mod map_renderer;
 mod support;
 mod tile;
-mod tile_cache;
-mod tile_requester;
 mod ui_filter;
 mod util;
 
 pub use button_widget::*;
 pub use map::*;
 pub use map_renderer::*;
-pub use tile_cache::*;
-pub use tile_requester::*;
+pub use tile::*;
 pub use ui_filter::*;
 pub use util::*;
 
@@ -70,7 +67,7 @@ pub fn run_app() {
 
     let runtime = tokio::runtime::Runtime::new().expect("Unable to create Tokio runtime!");
 
-    let mut tile_cache = TileCache::new(&runtime);
+    let mut pipelines = tile::pipelines();
 
     let mut should_update_ui = true;
     let mut viewer = map::TileView::new(0.0, 0.0, 2.0, 1080.0 / 2.0);
@@ -139,7 +136,7 @@ pub fn run_app() {
                     //========== Draw Map ==========
 
                     map_renderer::draw(
-                        &mut tile_cache,
+                        &mut pipelines,
                         &viewer,
                         &display,
                         &mut image_map,

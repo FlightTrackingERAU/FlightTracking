@@ -3,7 +3,7 @@ use conrod_core::{
     Colorable, Positionable, Sizeable, UiCell, Widget,
 };
 
-use crate::tile_cache::{TileCache, TileId};
+use crate::tile::{self, *};
 
 fn world_x_to_pixel_x(
     world_x: f64,
@@ -75,7 +75,7 @@ fn world_width_from_longitude(lng: f64) -> f64 {
 }
 
 pub fn draw(
-    tile_cache: &mut TileCache,
+    tile_cache: &mut tile::PipelineMap,
     view: &crate::map::TileView,
     display: &glium::Display,
     image_map: &mut conrod_core::image::Map<glium::Texture2d>,
@@ -84,7 +84,7 @@ pub fn draw(
 ) {
     //Or value is okay here because `tile_size()` only returns `None` if no tiles are cached, which
     //only happens the first few frames, therefore this value doesn't need to be accurate
-    let tile_size = tile_cache.tile_size().unwrap_or(256) / 2;
+    let tile_size = 128;
 
     let it = view.tile_iter(tile_size, ui.win_w, ui.win_h);
     let size = it.tile_size;
@@ -104,6 +104,8 @@ pub fn draw(
     ids.square_text
         .resize(tiles.len(), &mut ui.widget_id_generator());
 
+    let viewport = view.get_world_viewport(ui.win_w, ui.win_h);
+
     // The conrod coordinate system places 0, 0 in the center of the window. Up is the positive y
     // axis, and right is the positive x axis.
     // The units are in terms of screen pixels, so on a window with a size of 1000x500 the point
@@ -119,9 +121,10 @@ pub fn draw(
 
         let tile_id = TileId::new(tile.0, tile.1, zoom_level);
 
-        tile_cache.process(display, image_map);
+        let satellite = &tile_cache[TileKind::Satellite];
+        satellite.update(&viewport, display, image_map);
 
-        if let Some(tile) = tile_cache.get_tile(tile_id) {
+        if let Some(tile) = satellite.get_tile(tile_id) {
             Image::new(tile)
                 .x_y(x, y)
                 .wh(size.to_array())
@@ -137,8 +140,6 @@ pub fn draw(
                 .set(ids.square_text[i], ui);
         }
     }
-
-    let viewport = view.get_world_viewport(ui.win_w, ui.win_h);
 
     //Lines of latitude
     let lat_line_distance =

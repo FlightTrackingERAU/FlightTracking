@@ -2,10 +2,10 @@ use async_trait::async_trait;
 use image::{ImageBuffer, Rgba};
 use simple_moving_average::{SumTreeSMA, SMA};
 
-use thiserror::Error;
 use std::time::Duration;
+use thiserror::Error;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct TileId {
     pub x: u32,
     pub y: u32,
@@ -54,6 +54,10 @@ pub type Texture = ImageBuffer<Rgba<u8>, Vec<u8>>;
 
 /// A low level construct for requesting map tiles form a single source, such as an api,
 /// disk cache, or memory cache.
+///
+/// The main concern of this trait is to abstract loading tiles from arbitrary locations, therefore
+/// it does not support caching or even an external api for querying which requests are in progress.
+/// These are left to higher level layers, notably [`crate::tile::TilePipeline`].
 #[async_trait]
 pub trait Backend: Send + Sync {
     /// Initiates an asynchronous request to obtain the image data for `tile`.
@@ -91,16 +95,15 @@ pub trait Backend: Send + Sync {
 }
 
 async fn load_tile(bytes: Vec<u8>) -> Result<Texture, TileError> {
-    let result: Result<(Texture, Duration), TileError> =
-        tokio::task::spawn_blocking(move || {
-            let start = std::time::Instant::now();
+    let result: Result<(Texture, Duration), TileError> = tokio::task::spawn_blocking(move || {
+        let start = std::time::Instant::now();
 
-            let image = image::load_from_memory(&bytes)?.into_rgba();
+        let image = image::load_from_memory(&bytes)?.into_rgba();
 
-            let duration = start.elapsed();
-            Ok((image, duration))
-        })
-        .await?;
+        let duration = start.elapsed();
+        Ok((image, duration))
+    })
+    .await?;
     let (image, duration) = result?;
 
     let mut guard = crate::PERF_DATA.lock();
