@@ -132,6 +132,7 @@ pub fn run_app() {
 
                     // Set the widgets.
                     let ui = &mut ui.set_widgets();
+                    ids.filer_button.resize(4, &mut ui.widget_id_generator());
 
                     map_renderer::draw(
                         &mut tile_cache,
@@ -151,8 +152,6 @@ pub fn run_app() {
                     let widget_x_position = (ui.win_w / 2.0) * 0.95;
                     let widget_y_position = (ui.win_h / 2.0) * 0.90;
 
-                    ids.filer_button.resize(3, &mut ui.widget_id_generator());
-
                     widget::Text::new(frame_time_str.as_str())
                         .top_left()
                         .color(conrod_core::color::WHITE)
@@ -160,27 +159,53 @@ pub fn run_app() {
                         .font_size(12)
                         .set(ids.fps_logger, ui);
 
-                    if let Some(_clicks) = CircularButton::image(airplane_ids.normal)
-                        .x(widget_x_position)
-                        .y(widget_y_position)
-                        .w_h(50.0, 50.0)
-                        .label_color(conrod_core::color::WHITE)
-                        .label("Airplane Button")
-                        .set(ids.airplane_button, ui)
-                    {
-                        println!("{:?}", ui.xy_of(ids.airplane_button));
-                    }
+                    button_widget::draw_circle_with_image(
+                        ids.weather_button,
+                        ui,
+                        weather_id,
+                        widget_x_position,
+                        widget_y_position - 70.0,
+                    );
 
-                    if let Some(_clicks) = CircularButton::image(weather_id.normal)
-                        .x(widget_x_position)
-                        .y(widget_y_position - 70.0)
-                        .w_h(50.0, 50.0)
-                        .label_color(conrod_core::color::WHITE)
-                        .label("Weather Button")
-                        .set(ids.weather_button, ui)
-                    {
-                        println!("{:?}", ui.xy_of(ids.weather_button));
-                    }
+                    button_widget::draw_circle_with_image(
+                        ids.airplane_button,
+                        ui,
+                        airplane_ids,
+                        widget_x_position,
+                        widget_y_position,
+                    );
+
+                    ui_filter::draw(
+                        ids.filer_button[0],
+                        ui,
+                        String::from("American Airlanes"),
+                        widget_x_position - 130.0,
+                        widget_y_position,
+                    );
+
+                    ui_filter::draw(
+                        ids.filer_button[1],
+                        ui,
+                        String::from("Spirit"),
+                        widget_x_position - 130.0,
+                        widget_y_position - 40.0,
+                    );
+
+                    ui_filter::draw(
+                        ids.filer_button[2],
+                        ui,
+                        String::from("Southwest"),
+                        widget_x_position - 130.0,
+                        widget_y_position - 80.0,
+                    );
+
+                    ui_filter::draw(
+                        ids.filer_button[3],
+                        ui,
+                        String::from("United"),
+                        widget_x_position - 130.0,
+                        widget_y_position - 120.0,
+                    );
 
                     // Request redraw if the `Ui` has changed.
                     //

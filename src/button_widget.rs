@@ -1,7 +1,7 @@
 use conrod_core::widget::button::{Flat, Image, ImageColor};
 use conrod_core::{
     self, text, widget, widget_ids, Color, Colorable, FontSize, Labelable, Positionable, Scalar,
-    Widget,
+    UiCell, Widget,
 };
 use conrod_core::{image, Sizeable};
 
@@ -10,6 +10,7 @@ use conrod_core::{WidgetCommon, WidgetStyle};
 ///Image Id to communicate with the CircularImageIds.
 ///
 ///In case the image needs to change when being hovered or pressed.
+#[derive(Clone, Copy)]
 pub struct ImageId {
     ///Image Id for when the image is not doing anything
     pub normal: conrod_core::image::Id,
@@ -380,5 +381,24 @@ impl<'a, S> Labelable<'a> for CircularButton<'a, S> {
     fn label_font_size(mut self, size: conrod_core::FontSize) -> Self {
         self.style.label_font_size = Some(size);
         self
+    }
+}
+
+pub fn draw_circle_with_image(
+    widget: widget::id::Id,
+    ui: &mut UiCell,
+    image_id: ImageId,
+    widget_x_position: f64,
+    widget_y_position: f64,
+) {
+    if let Some(_clicks) = CircularButton::image(image_id.normal)
+        .x(widget_x_position)
+        .y(widget_y_position)
+        .w_h(50.0, 50.0)
+        .label_color(conrod_core::color::WHITE)
+        .label("Airplane Button")
+        .set(widget, ui)
+    {
+        println!("{:?}", ui.xy_of(widget));
     }
 }

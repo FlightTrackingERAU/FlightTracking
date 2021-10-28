@@ -243,3 +243,23 @@ fn label(button_id: widget::Id, label_id: widget::Id, label: &str, style: &Style
         .font_size(font_size)
         .set(label_id, ui);
 }
+
+pub fn draw(
+    widget_id: widget::id::Id,
+    ui: &mut UiCell,
+    label: String,
+    widget_x_position: f64,
+    widget_y_position: f64,
+) {
+    if let Some(_clicks) = FilterButton::new()
+        .x(widget_x_position)
+        .y(widget_y_position)
+        .w_h(150.0, 30.0)
+        .label_font_size(10)
+        .label_color(conrod_core::color::BLACK)
+        .label(label.as_str())
+        .set(widget_id, ui)
+    {
+        println!("{:?}", ui.xy_of(widget_id));
+    }
+}
