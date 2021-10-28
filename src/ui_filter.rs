@@ -64,6 +64,7 @@ widget_ids! {
     }
 }
 
+///Declaration of the Filter State
 pub struct FilterWidgetState {
     ids: FilterWidgetIds,
 }
@@ -121,6 +122,12 @@ impl<'a> FilterButton<'a> {
     pub fn enabled(mut self, flag: bool) -> Self {
         self.enabled = flag;
         self
+    }
+}
+
+impl<'a> Default for FilterButton<'a> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -231,7 +238,9 @@ fn label(button_id: widget::Id, label_id: widget::Id, label: &str, style: &Style
     let x = style.label_x(&ui.theme);
     let y = style.label_y(&ui.theme);
     let justify = style.label_justify(&ui.theme);
-    let font_id = style.label_font_id(&ui.theme).or(ui.fonts.ids().next());
+    let font_id = style
+        .label_font_id(&ui.theme)
+        .or_else(|| ui.fonts.ids().next());
     widget::Text::new(label)
         .and_then(font_id, widget::Text::font_id)
         .x_position_relative_to(button_id, x)

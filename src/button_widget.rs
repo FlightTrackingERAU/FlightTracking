@@ -291,7 +291,7 @@ impl<'a> Widget for CircularButton<'a, Flat> {
     }
 
     fn style(&self) -> Self::Style {
-        self.style.clone()
+        self.style
     }
 
     fn update(self, args: widget::UpdateArgs<Self>) -> Self::Event {
@@ -335,7 +335,9 @@ impl<'a> Widget for CircularButton<'a, Flat> {
         if let Some(label) = self.maybe_label {
             let label_color = style.label_color(&ui.theme);
             let font_size = style.label_font_size(&ui.theme);
-            let font_id = style.label_font_id(&ui.theme).or(ui.fonts.ids().next());
+            let font_id = style
+                .label_font_id(&ui.theme)
+                .or_else(|| ui.fonts.ids().next());
 
             widget::Text::new(label)
                 .and_then(font_id, widget::Text::font_id)

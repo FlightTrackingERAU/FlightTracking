@@ -1,6 +1,4 @@
-use conrod_core::{
-    text::Font, widget, widget_ids, Colorable, Labelable, Positionable, Sizeable, Widget,
-};
+use conrod_core::{text::Font, widget, widget_ids, Colorable, Positionable, Widget};
 use glam::DVec2;
 use glium::Surface;
 
