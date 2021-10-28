@@ -26,7 +26,7 @@ const HEIGHT: u32 = 720;
 
 const MAX_ZOOM_LEVEL: u32 = 20;
 
-widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], weather_button, airplane_button, latitude_lines[], latitude_text[], longitude_lines[], longitude_text[], filter_widget });
+widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], weather_button, airplane_button, latitude_lines[], latitude_text[], longitude_lines[], longitude_text[], filter_widget,filer_button[] });
 
 pub fn run_app() {
     // Create our UI's event loop
@@ -51,6 +51,9 @@ pub fn run_app() {
     //Making airplane image ids
     let airplane_image_bytes = include_bytes!("../assets/images/airplane-icon.png");
     let airplane_ids = return_image_essentials(&display, airplane_image_bytes, &mut image_map);
+
+    let weather_image_bytes = include_bytes!("../assets/images/weather-icon.png");
+    let weather_id = return_image_essentials(&display, weather_image_bytes, &mut image_map);
 
     let noto_sans_ttf = include_bytes!("../assets/fonts/NotoSans/NotoSans-Regular.ttf");
 
@@ -145,6 +148,11 @@ pub fn run_app() {
                         (1000.0 / frame_time_ms) as u32
                     );
 
+                    let widget_x_position = (ui.win_w / 2.0) * 0.95;
+                    let widget_y_position = (ui.win_h / 2.0) * 0.90;
+
+                    ids.filer_button.resize(3, &mut ui.widget_id_generator());
+
                     widget::Text::new(frame_time_str.as_str())
                         .top_left()
                         .color(conrod_core::color::WHITE)
@@ -153,8 +161,8 @@ pub fn run_app() {
                         .set(ids.fps_logger, ui);
 
                     if let Some(_clicks) = CircularButton::image(airplane_ids.normal)
-                        .x((ui.win_w / 2.0) * 0.95)
-                        .y((ui.win_h / 2.0) * 0.90)
+                        .x(widget_x_position)
+                        .y(widget_y_position)
                         .w_h(50.0, 50.0)
                         .label_color(conrod_core::color::WHITE)
                         .label("Airplane Button")
@@ -163,17 +171,17 @@ pub fn run_app() {
                         println!("{:?}", ui.xy_of(ids.airplane_button));
                     }
 
-                    if let Some(_clicks) = FilterButton::new()
-                        .left_from(ids.airplane_button, 50.0)
-                        .y((ui.win_h / 2.0) * 0.90)
-                        .w_h(150.0, 30.0)
-                        .label_color(conrod_core::color::BLACK)
-                        .label_font_size(10)
-                        .label("American Airlines")
-                        .set(ids.filter_widget, ui)
+                    if let Some(_clicks) = CircularButton::image(weather_id.normal)
+                        .x(widget_x_position)
+                        .y(widget_y_position - 70.0)
+                        .w_h(50.0, 50.0)
+                        .label_color(conrod_core::color::WHITE)
+                        .label("Weather Button")
+                        .set(ids.weather_button, ui)
                     {
-                        println!("{:?}", ui.xy_of(ids.filter_widget));
+                        println!("{:?}", ui.xy_of(ids.weather_button));
                     }
+
                     // Request redraw if the `Ui` has changed.
                     //
                     //
