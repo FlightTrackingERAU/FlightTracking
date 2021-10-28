@@ -43,7 +43,7 @@ fn line_distance_for_viewport_degrees(world_range: f64, dimension_size: f64) -> 
 
     // Range in degrees, adjusted for screen size
     let mapped_range = range_degrees * 500.0 / dimension_size;
-    const DISTANCE_SCALE: f64 = 3.0;
+    const DISTANCE_SCALE: f64 = 2.0;
 
     // Define nice distance values between lines for large distances
     let mapping = [45.0, 15.0, 5.0, 2.0, 1.0];
@@ -95,6 +95,11 @@ pub fn draw(
     let tiles_vertically = it.tiles_vertically;
 
     let tiles: Vec<_> = it.collect();
+    {
+        let mut guard = crate::PERF_DATA.lock();
+        guard.tiles_rendered = tiles.len();
+        guard.zoom = zoom_level;
+    }
 
     ids.tiles.resize(tiles.len(), &mut ui.widget_id_generator());
     ids.square_text
@@ -158,6 +163,8 @@ pub fn draw(
         0usize
     };
 
+    const LINE_ALPHA: f32 = 0.4;
+
     //Latitude decreases as world y increases
     for i in 0..lat_lines {
         let lat = lat_start - i as f64 * lat_line_distance;
@@ -168,7 +175,7 @@ pub fn draw(
         Line::new([-half_width, y_pixel], [half_width, y_pixel])
             //Why does this call need to happen?
             .x_y(0.0, 0.0)
-            .color(conrod_core::color::BLACK.alpha(0.5))
+            .color(conrod_core::color::BLACK.alpha(LINE_ALPHA))
             .thickness(1.5)
             .set(ids.latitude_lines[i], ui);
 
@@ -220,7 +227,7 @@ pub fn draw(
         let half_height = ui.win_h / 2.0;
         Line::new([x_pixel, -half_height], [x_pixel, half_height])
             .x_y(0.0, 0.0)
-            .color(conrod_core::color::BLACK.alpha(0.5))
+            .color(conrod_core::color::BLACK.alpha(LINE_ALPHA))
             .thickness(1.5)
             .set(ids.longitude_lines[i], ui);
 
