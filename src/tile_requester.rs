@@ -1,3 +1,4 @@
+use simple_moving_average::SMA;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use maptiler_cloud::{Maptiler, TileRequest};
@@ -5,7 +6,10 @@ use tokio::runtime::Runtime;
 
 use crate::tile_cache::{Tile, TileId};
 
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    time::Instant,
+};
 
 pub struct TileRequester {
     tile_rx: UnboundedReceiver<Tile>,
@@ -102,10 +106,13 @@ async fn request_loop(
             tokio::spawn(async move {
                 let start = std::time::Instant::now();
                 if let Ok(tile_bytes) = request.execute().await {
-                    println!(
-                        "tile request took: {} ms",
-                        (std::time::Instant::now() - start).as_micros() as f64 / 1000.0
-                    );
+                    {
+                        let mut guard = crate::PERF_DATA.lock();
+                        guard
+                            .satellite
+                            .api_secs
+                            .add_sample((std::time::Instant::now() - start).as_secs_f32());
+                    }
 
                     let path = get_tile_path(tile_id);
                     let parent = std::path::Path::new(&path)
@@ -114,12 +121,19 @@ async fn request_loop(
 
                     let _ = tokio::fs::create_dir_all(parent).await;
 
-                    //println!("Saving tile: {:?} to {}", tile_id, path);
                     if let Some(err) = tokio::fs::write(&path, &tile_bytes).await.err() {
                         println!("Failed to save to {}: {:?}", path, err);
                     }
+                    let start = std::time::Instant::now();
                     // Create an RGBA image from the JPEG bytes
                     let image = image::load_from_memory(&tile_bytes).unwrap().into_rgba();
+                    {
+                        let mut guard = crate::PERF_DATA.lock();
+                        guard
+                            .satellite
+                            .decode_secs
+                            .add_sample((std::time::Instant::now() - start).as_secs_f32());
+                    }
                     //Images must be square
                     assert_eq!(image.width(), image.height());
 

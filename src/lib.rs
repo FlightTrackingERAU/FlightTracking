@@ -152,6 +152,16 @@ pub fn run_app() {
                         guard.snapshot()
                     };
 
+                    let print_api_info = |info: &str, data: &util::ApiTimeDataSnapshot| -> String {
+                        format!(
+                            "{} - Api: {:.1}ms, Decode: {:.2}ms, Upload {:.2}ms",
+                            info,
+                            data.api_secs * 1000.0,
+                            data.decode_secs * 1000.0,
+                            data.upload_secs * 1000.0,
+                        )
+                    };
+
                     let debug_text = [
                         format!(
                             "FT: {:.2}, FPS: {}",
@@ -159,25 +169,23 @@ pub fn run_app() {
                             (1000.0 / frame_time_ms) as u32
                         ),
                         format!("Zoom: {}, Tiles: {}", data.zoom, data.tiles_rendered),
+                        print_api_info("Satellite", &data.satellite),
+                        print_api_info("Weather", &data.weather),
                     ];
                     ids.debug_menu
                         .resize(debug_text.len(), &mut ui.widget_id_generator());
 
-                    let mut last_id = None;
                     for (i, text) in debug_text.iter().enumerate() {
-                        let mut gui_text = widget::Text::new(text.as_str());
-                        gui_text = match last_id {
-                            Some(id) => gui_text.y_relative_to(id, -16.0),
-                            None => gui_text.top_left(),
-                        };
-                        let id = ids.debug_menu[i];
-                        gui_text
+                        let gui_text = widget::Text::new(text.as_str())
                             .color(conrod_core::color::WHITE)
-                            .justify(conrod_core::text::Justify::Right)
-                            .font_size(12)
-                            .font_id(b612)
-                            .set(id, ui);
-                        last_id = Some(id);
+                            .left_justify()
+                            .font_size(8)
+                            .font_id(b612);
+
+                        let width = gui_text.get_w(ui).unwrap();
+                        let x = -ui.win_w / 2.0 + width / 2.0 + 4.0;
+                        let y = ui.win_h / 2.0 - 8.0 - i as f64 * 11.0;
+                        gui_text.x_y(x, y).set(ids.debug_menu[i], ui);
                     }
 
                     //========== Draw Buttons ==========
@@ -204,10 +212,8 @@ pub fn run_app() {
                     {
                         println!("{:?}", ui.xy_of(ids.filter_widget));
                     }
-                    // Request redraw if the `Ui` has changed.
-                    //
-                    //
-                    //
+
+                    //========== Request Redraw if the Ui Has Changed ==========
 
                     display.gl_window().window().request_redraw();
                 }
