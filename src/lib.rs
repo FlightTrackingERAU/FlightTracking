@@ -1,4 +1,4 @@
-use conrod_core::{text::Font, widget, widget_ids, Colorable, Positionable, Widget};
+use conrod_core::{text::Font, widget, widget_ids, Colorable, Positionable, Sizeable, Widget};
 use glam::DVec2;
 use glium::Surface;
 
@@ -24,12 +24,9 @@ const HEIGHT: u32 = 720;
 
 const MAX_ZOOM_LEVEL: u32 = 20;
 
-
-widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], weather_button, airplane_button, latitude_lines[], latitude_text[], longitude_lines[], longitude_text[],filer_button[] });
-
+widget_ids!(pub struct Ids { debug_menu[], fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], weather_button, airplane_button, latitude_lines[], latitude_text[], longitude_lines[], longitude_text[],filer_button[] });
 
 pub use util::PERF_DATA;
-
 
 pub fn run_app() {
     // Create our UI's event loop
@@ -157,10 +154,8 @@ pub fn run_app() {
                         guard.snapshot()
                     };
 
-
                     let widget_x_position = (ui.win_w / 2.0) * 0.95;
                     let widget_y_position = (ui.win_h / 2.0) * 0.90;
-
 
                     let print_api_info = |info: &str, data: &util::ApiTimeDataSnapshot| -> String {
                         format!(
@@ -199,7 +194,6 @@ pub fn run_app() {
                     }
 
                     //========== Draw Buttons ==========
-
 
                     button_widget::draw_circle_with_image(
                         ids.weather_button,
@@ -248,7 +242,6 @@ pub fn run_app() {
                         widget_x_position - 130.0,
                         widget_y_position - 120.0,
                     );
-
 
                     display.gl_window().window().request_redraw();
                 }
