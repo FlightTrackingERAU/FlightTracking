@@ -24,7 +24,12 @@ const HEIGHT: u32 = 720;
 
 const MAX_ZOOM_LEVEL: u32 = 20;
 
-widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], weather_button, airplane_button, latitude_lines[], latitude_text[], longitude_lines[], longitude_text[], filter_widget,filer_button[] });
+
+widget_ids!(pub struct Ids { fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], weather_button, airplane_button, latitude_lines[], latitude_text[], longitude_lines[], longitude_text[],filer_button[] });
+
+
+pub use util::PERF_DATA;
+
 
 pub fn run_app() {
     // Create our UI's event loop
@@ -54,9 +59,12 @@ pub fn run_app() {
     let weather_id = return_image_essentials(&display, weather_image_bytes, &mut image_map);
 
     let noto_sans_ttf = include_bytes!("../assets/fonts/NotoSans/NotoSans-Regular.ttf");
+    let noto_sans = Font::from_bytes(noto_sans_ttf).expect("Failed to decode font");
+    let noto_sans = ui.fonts.insert(noto_sans);
 
-    let font = Font::from_bytes(noto_sans_ttf).expect("Failed to decode font");
-    ui.fonts.insert(font);
+    let b612_ttf = include_bytes!("../assets/fonts/B612Mono/B612Mono-Regular.ttf");
+    let b612 = Font::from_bytes(b612_ttf).expect("Failed to decode font");
+    let b612 = ui.fonts.insert(b612);
 
     let mut renderer = conrod_glium::Renderer::new(&display).unwrap();
 
@@ -132,6 +140,8 @@ pub fn run_app() {
                     let ui = &mut ui.set_widgets();
                     ids.filer_button.resize(4, &mut ui.widget_id_generator());
 
+                    //========== Draw Map ==========
+
                     map_renderer::draw(
                         &mut tile_cache,
                         &viewer,
@@ -141,21 +151,55 @@ pub fn run_app() {
                         ui,
                     );
 
-                    let frame_time_str = format!(
-                        "FT: {:.2}, FPS: {}",
-                        frame_time_ms,
-                        (1000.0 / frame_time_ms) as u32
-                    );
+                    //========== Draw Debug Text ==========
+                    let data = {
+                        let mut guard = PERF_DATA.lock();
+                        guard.snapshot()
+                    };
+
 
                     let widget_x_position = (ui.win_w / 2.0) * 0.95;
                     let widget_y_position = (ui.win_h / 2.0) * 0.90;
 
-                    widget::Text::new(frame_time_str.as_str())
-                        .top_left()
-                        .color(conrod_core::color::WHITE)
-                        .justify(conrod_core::text::Justify::Right)
-                        .font_size(12)
-                        .set(ids.fps_logger, ui);
+
+                    let print_api_info = |info: &str, data: &util::ApiTimeDataSnapshot| -> String {
+                        format!(
+                            "{} - Api: {:.1}ms, Decode: {:.2}ms, Upload {:.2}ms",
+                            info,
+                            data.api_secs * 1000.0,
+                            data.decode_secs * 1000.0,
+                            data.upload_secs * 1000.0,
+                        )
+                    };
+
+                    let debug_text = [
+                        format!(
+                            "FT: {:.2}, FPS: {}",
+                            frame_time_ms,
+                            (1000.0 / frame_time_ms) as u32
+                        ),
+                        format!("Zoom: {}, Tiles: {}", data.zoom, data.tiles_rendered),
+                        print_api_info("Satellite", &data.satellite),
+                        print_api_info("Weather", &data.weather),
+                    ];
+                    ids.debug_menu
+                        .resize(debug_text.len(), &mut ui.widget_id_generator());
+
+                    for (i, text) in debug_text.iter().enumerate() {
+                        let gui_text = widget::Text::new(text.as_str())
+                            .color(conrod_core::color::WHITE)
+                            .left_justify()
+                            .font_size(8)
+                            .font_id(b612);
+
+                        let width = gui_text.get_w(ui).unwrap();
+                        let x = -ui.win_w / 2.0 + width / 2.0 + 4.0;
+                        let y = ui.win_h / 2.0 - 8.0 - i as f64 * 11.0;
+                        gui_text.x_y(x, y).set(ids.debug_menu[i], ui);
+                    }
+
+                    //========== Draw Buttons ==========
+
 
                     button_widget::draw_circle_with_image(
                         ids.weather_button,
@@ -205,10 +249,6 @@ pub fn run_app() {
                         widget_y_position - 120.0,
                     );
 
-                    // Request redraw if the `Ui` has changed.
-                    //
-                    //
-                    //
 
                     display.gl_window().window().request_redraw();
                 }

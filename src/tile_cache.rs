@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use simple_moving_average::SMA;
 use tokio::runtime::Runtime;
 
 use crate::{tile_requester::TileRequester, MAX_ZOOM_LEVEL};
@@ -132,10 +133,19 @@ impl TileCache {
         image: image::RgbaImage,
     ) -> glium::Texture2d {
         let image_dimensions = image.dimensions();
+        let start = std::time::Instant::now();
 
         let raw_image =
             glium::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
 
-        glium::texture::Texture2d::new(display, raw_image).unwrap()
+        let result = glium::texture::Texture2d::new(display, raw_image).unwrap();
+        {
+            let mut guard = crate::PERF_DATA.lock();
+            guard
+                .satellite
+                .upload_secs
+                .add_sample((std::time::Instant::now() - start).as_secs_f32());
+        }
+        result
     }
 }
