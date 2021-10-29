@@ -1,6 +1,4 @@
-use conrod_core::{
-    text::Font, widget, widget_ids, Colorable, Labelable, Positionable, Sizeable, Widget,
-};
+use conrod_core::{text::Font, widget, widget_ids, Colorable, Positionable, Sizeable, Widget};
 use glam::DVec2;
 use glium::Surface;
 
@@ -26,7 +24,7 @@ const HEIGHT: u32 = 720;
 
 const MAX_ZOOM_LEVEL: u32 = 20;
 
-widget_ids!(pub struct Ids { debug_menu[], text, viewport, map_images[], squares[], tiles[], square_text[], weather_button, airplane_button, latitude_lines[], latitude_text[], longitude_lines[], longitude_text[], filter_widget });
+widget_ids!(pub struct Ids { debug_menu[], fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], weather_button, airplane_button, latitude_lines[], latitude_text[], longitude_lines[], longitude_text[],filer_button[] });
 
 pub use util::PERF_DATA;
 
@@ -53,6 +51,9 @@ pub fn run_app() {
     //Making airplane image ids
     let airplane_image_bytes = include_bytes!("../assets/images/airplane-icon.png");
     let airplane_ids = return_image_essentials(&display, airplane_image_bytes, &mut image_map);
+
+    let weather_image_bytes = include_bytes!("../assets/images/weather-icon.png");
+    let weather_id = return_image_essentials(&display, weather_image_bytes, &mut image_map);
 
     let noto_sans_ttf = include_bytes!("../assets/fonts/NotoSans/NotoSans-Regular.ttf");
     let noto_sans = Font::from_bytes(noto_sans_ttf).expect("Failed to decode font");
@@ -134,6 +135,7 @@ pub fn run_app() {
 
                     // Set the widgets.
                     let ui = &mut ui.set_widgets();
+                    ids.filer_button.resize(4, &mut ui.widget_id_generator());
 
                     //========== Draw Map ==========
 
@@ -151,6 +153,9 @@ pub fn run_app() {
                         let mut guard = PERF_DATA.lock();
                         guard.snapshot()
                     };
+
+                    let widget_x_position = (ui.win_w / 2.0) * 0.95;
+                    let widget_y_position = (ui.win_h / 2.0) * 0.90;
 
                     let print_api_info = |info: &str, data: &util::ApiTimeDataSnapshot| -> String {
                         format!(
@@ -190,30 +195,53 @@ pub fn run_app() {
 
                     //========== Draw Buttons ==========
 
-                    if let Some(_clicks) = CircularButton::image(airplane_ids.normal)
-                        .x((ui.win_w / 2.0) * 0.95)
-                        .y((ui.win_h / 2.0) * 0.90)
-                        .w_h(50.0, 50.0)
-                        .label_color(conrod_core::color::WHITE)
-                        .label("Airplane Button")
-                        .set(ids.airplane_button, ui)
-                    {
-                        println!("{:?}", ui.xy_of(ids.airplane_button));
-                    }
+                    button_widget::draw_circle_with_image(
+                        ids.weather_button,
+                        ui,
+                        weather_id,
+                        widget_x_position,
+                        widget_y_position - 70.0,
+                    );
 
-                    if let Some(_clicks) = FilterButton::new()
-                        .left_from(ids.airplane_button, 50.0)
-                        .y((ui.win_h / 2.0) * 0.90)
-                        .w_h(150.0, 30.0)
-                        .label_color(conrod_core::color::BLACK)
-                        .label_font_size(10)
-                        .label("American Airlines")
-                        .set(ids.filter_widget, ui)
-                    {
-                        println!("{:?}", ui.xy_of(ids.filter_widget));
-                    }
+                    button_widget::draw_circle_with_image(
+                        ids.airplane_button,
+                        ui,
+                        airplane_ids,
+                        widget_x_position,
+                        widget_y_position,
+                    );
 
-                    //========== Request Redraw if the Ui Has Changed ==========
+                    ui_filter::draw(
+                        ids.filer_button[0],
+                        ui,
+                        String::from("American Airlanes"),
+                        widget_x_position - 130.0,
+                        widget_y_position,
+                    );
+
+                    ui_filter::draw(
+                        ids.filer_button[1],
+                        ui,
+                        String::from("Spirit"),
+                        widget_x_position - 130.0,
+                        widget_y_position - 40.0,
+                    );
+
+                    ui_filter::draw(
+                        ids.filer_button[2],
+                        ui,
+                        String::from("Southwest"),
+                        widget_x_position - 130.0,
+                        widget_y_position - 80.0,
+                    );
+
+                    ui_filter::draw(
+                        ids.filer_button[3],
+                        ui,
+                        String::from("United"),
+                        widget_x_position - 130.0,
+                        widget_y_position - 120.0,
+                    );
 
                     display.gl_window().window().request_redraw();
                 }
