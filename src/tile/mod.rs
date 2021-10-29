@@ -5,6 +5,7 @@ pub use backend::*;
 pub use pipeline::*;
 
 use enum_map::{enum_map, Enum, EnumMap};
+use tokio::runtime::Runtime;
 
 #[derive(Debug, Enum)]
 pub enum TileKind {
@@ -14,9 +15,9 @@ pub enum TileKind {
 
 pub type PipelineMap = EnumMap<TileKind, TilePipeline>;
 
-pub fn pipelines() -> PipelineMap {
+pub fn pipelines(runtime: &Runtime) -> PipelineMap {
     enum_map! {
-        TileKind::Satellite => TilePipeline::new(Vec::new()),
-        TileKind::Weather => TilePipeline::new(Vec::new()),
+        TileKind::Satellite => TilePipeline::new(vec![Box::new(DiskTileCache::new("tile-cache", "jpg"))], runtime),
+        TileKind::Weather => TilePipeline::new(vec![], runtime),
     }
 }

@@ -106,6 +106,9 @@ pub fn draw(
 
     let viewport = view.get_world_viewport(ui.win_w, ui.win_h);
 
+    let satellite = &mut tile_cache[TileKind::Satellite];
+    satellite.update(&viewport, display, image_map);
+
     // The conrod coordinate system places 0, 0 in the center of the window. Up is the positive y
     // axis, and right is the positive x axis.
     // The units are in terms of screen pixels, so on a window with a size of 1000x500 the point
@@ -121,9 +124,6 @@ pub fn draw(
 
         let tile_id = TileId::new(tile.0, tile.1, zoom_level);
 
-        let satellite = &tile_cache[TileKind::Satellite];
-        satellite.update(&viewport, display, image_map);
-
         if let Some(tile) = satellite.get_tile(tile_id) {
             Image::new(tile)
                 .x_y(x, y)
@@ -132,12 +132,13 @@ pub fn draw(
         } else if cfg!(debug_assertions) {
             //Render debug tile information when run in debug mode
 
-            let text = format!("[{}, {}] @ {}", tile.0, tile.1, zoom_level);
+            /*let text = format!("[{},{}]@{}", tile.0, tile.1, zoom_level);
             Text::new(text.as_str())
-                .xy_relative([0.0, 0.0])
+                .x_y(x, y)
                 .color(conrod_core::color::WHITE)
                 .font_size(12)
                 .set(ids.square_text[i], ui);
+            */
         }
     }
 
@@ -179,7 +180,7 @@ pub fn draw(
             .thickness(1.5)
             .set(ids.latitude_lines[i], ui);
 
-        let text = if lat > 0.0 {
+        let text = if lat >= 0.0 {
             format!("{:.1$}°N", lat, precision)
         } else {
             format!("{:.1$}°S", -lat, precision)
@@ -231,7 +232,7 @@ pub fn draw(
             .thickness(1.5)
             .set(ids.longitude_lines[i], ui);
 
-        let text = if lng > 0.0 {
+        let text = if lng >= 0.0 {
             format!("{:.1$}°E", lng, precision)
         } else {
             format!("{:.1$}°W", -lng, precision)

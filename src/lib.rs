@@ -67,7 +67,7 @@ pub fn run_app() {
 
     let runtime = tokio::runtime::Runtime::new().expect("Unable to create Tokio runtime!");
 
-    let mut pipelines = tile::pipelines();
+    let mut pipelines = tile::pipelines(&runtime);
 
     let mut should_update_ui = true;
     let mut viewer = map::TileView::new(0.0, 0.0, 2.0, 1080.0 / 2.0);
@@ -150,7 +150,7 @@ pub fn run_app() {
                         guard.snapshot()
                     };
 
-                    let debug_text = [
+                    let mut debug_text = vec![
                         format!(
                             "FT: {:.2}, FPS: {}",
                             frame_time_ms,
@@ -158,11 +158,18 @@ pub fn run_app() {
                         ),
                         format!("Zoom: {}, Tiles: {}", data.zoom, data.tiles_rendered),
                         format!(
-                            "Decode: {}ms, Upload: {}ms",
+                            "Decode: {:.2}ms, Upload: {:.2}ms",
                             data.tile_decode_time.as_secs_f64() * 1000.0,
                             data.tile_upload_time.as_secs_f64() * 1000.0
                         ),
                     ];
+                    for (backend_name, time) in data.backend_request_secs {
+                        debug_text.push(format!(
+                            " {}: {:.2}ms",
+                            backend_name,
+                            time.as_secs_f64() * 1000.0
+                        ));
+                    }
                     ids.debug_menu
                         .resize(debug_text.len(), &mut ui.widget_id_generator());
 

@@ -1,3 +1,10 @@
 /target
 Cargo.lock
 tile-cache/
+
+#Debugging
+.gdb_history
+flamegraph.svg
+peda-session-flight_tracking_erau_se300.txt
+perf.data
+perf.data.old

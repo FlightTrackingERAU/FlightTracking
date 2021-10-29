@@ -5,7 +5,7 @@ use simple_moving_average::{SumTreeSMA, SMA};
 use std::time::Duration;
 use thiserror::Error;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct TileId {
     pub x: u32,
     pub y: u32,
@@ -76,7 +76,7 @@ pub trait Backend: Send + Sync {
             guard
                 .backend_request_secs
                 .entry(self.name())
-                .or_insert(SumTreeSMA::from_zero(Duration::ZERO))
+                .or_insert_with(|| SumTreeSMA::from_zero(Duration::ZERO))
                 .add_sample(duration);
         }
         match result {
@@ -95,19 +95,19 @@ pub trait Backend: Send + Sync {
 }
 
 async fn load_tile(bytes: Vec<u8>) -> Result<Texture, TileError> {
-    let result: Result<(Texture, Duration), TileError> = tokio::task::spawn_blocking(move || {
+    let result: Result<Texture, TileError> = tokio::task::spawn_blocking(move || {
         let start = std::time::Instant::now();
 
         let image = image::load_from_memory(&bytes)?.into_rgba();
 
         let duration = start.elapsed();
-        Ok((image, duration))
+        let mut guard = crate::PERF_DATA.lock();
+        guard.tile_decode_time.add_sample(duration);
+        Ok(image)
     })
     .await?;
-    let (image, duration) = result?;
+    let image = result?;
 
-    let mut guard = crate::PERF_DATA.lock();
-    guard.tile_decode_time.add_sample(duration);
     //Images must be square
     assert_eq!(image.width(), image.height());
     Ok(image)
@@ -123,6 +123,15 @@ fn get_tile_path(folder_name: &str, extension: &str, tile: TileId) -> String {
 pub struct DiskTileCache {
     folder_name: String,
     image_extension: String,
+}
+
+impl DiskTileCache {
+    pub fn new(folder_name: &str, image_extension: &str) -> Self {
+        Self {
+            folder_name: folder_name.to_owned(),
+            image_extension: image_extension.to_owned(),
+        }
+    }
 }
 
 #[async_trait]

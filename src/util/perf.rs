@@ -20,6 +20,7 @@ pub struct PerformanceDataSnapshot {
     pub tiles_on_gpu: usize,
     pub tiles_in_memory: usize,
     pub zoom: u32,
+    pub backend_request_secs: Vec<(&'static str, Duration)>,
     pub tile_decode_time: Duration,
     pub tile_upload_time: Duration,
 }
@@ -37,6 +38,11 @@ impl PerformanceData {
             zoom: self.zoom,
             tile_decode_time: self.tile_decode_time.get_average(),
             tile_upload_time: self.tile_upload_time.get_average(),
+            backend_request_secs: self
+                .backend_request_secs
+                .iter()
+                .map(|(k, v)| (*k, v.get_average()))
+                .collect(),
         }
     }
 }
