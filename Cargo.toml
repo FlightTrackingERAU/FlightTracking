@@ -26,6 +26,7 @@ rand = "0.8"
 
 tokio = { version = "1.12", features = ["full"]}
 async-trait = "0.1"
+thiserror = "1.0"
 
 image = "0.22"
 rain_viewer = "0.2"
@@ -33,6 +34,7 @@ maptiler-cloud = "0.3"
 
 parking_lot = "0.11"
 simple_moving_average = "0.1"
+
 intmap = "0.7"
 enum-map = "1.1"
-thiserror = "1.0"
+atomic_enum = "0.1"

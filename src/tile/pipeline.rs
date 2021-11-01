@@ -127,7 +127,6 @@ async fn tile_requester(
         //TODO: Limit concurrent requests. Maybe use some kind of convar or custom atomicint?
         let upload_tx = upload_tx.clone();
         let backends = backends.clone();
-        //println!("Requesting tile: {:?}", tile);
         tokio::spawn(async move {
             for backend in backends.iter() {
                 //Go through each level of cache and try to obtain tile

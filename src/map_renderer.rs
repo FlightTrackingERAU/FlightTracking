@@ -147,7 +147,6 @@ pub fn draw(
         }
 
         if let Some(tile) = weather.get_tile(tile_id) {
-            println!("Got weather texture!: {:?}", tile_id);
             Image::new(tile)
                 .x_y(x, y)
                 .wh(size.to_array())

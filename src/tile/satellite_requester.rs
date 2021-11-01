@@ -34,7 +34,6 @@ impl Backend for SatelliteRequester {
             Ok(req) => req,
             Err(_err) => return Ok(None),
         };
-        println!("Requesting: {:?}", req);
         Ok(Some(self.maptiler.create_request(req).execute().await?))
     }
 
