@@ -1,4 +1,6 @@
-use conrod_core::{text::Font, widget, widget_ids, Colorable, Positionable, Sizeable, Widget};
+use conrod_core::{
+    event, text::Font, widget, widget_ids, Colorable, Positionable, Sizeable, Widget,
+};
 use glam::DVec2;
 use glium::Surface;
 
@@ -243,6 +245,7 @@ pub fn run_app() {
                         widget_y_position - 120.0,
                     );
 
+                    widget::Toggle::new(ids.airplane_button);
                     display.gl_window().window().request_redraw();
                 }
             }
