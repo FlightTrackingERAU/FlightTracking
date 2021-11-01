@@ -155,7 +155,7 @@ fn create_texture(display: &glium::Display, image: image::RgbaImage) -> glium::T
 
     let result = glium::texture::Texture2d::new(display, raw_image).unwrap();
     {
-        let mut guard = crate::PERF_DATA.lock();
+        let mut guard = crate::MAP_PERF_DATA.lock();
         guard.tile_upload_time.add_sample(start.elapsed());
     }
     result

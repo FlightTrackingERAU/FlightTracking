@@ -26,7 +26,7 @@ pub struct PerformanceDataSnapshot {
 }
 
 lazy_static! {
-    pub static ref PERF_DATA: Mutex<PerformanceData> = Mutex::new(Default::default());
+    pub static ref MAP_PERF_DATA: Mutex<PerformanceData> = Mutex::new(Default::default());
 }
 
 impl PerformanceData {

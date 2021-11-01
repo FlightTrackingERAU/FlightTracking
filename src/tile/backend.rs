@@ -72,7 +72,7 @@ pub trait Backend: Send + Sync {
 
         let duration = start.elapsed();
         {
-            let mut guard = crate::PERF_DATA.lock();
+            let mut guard = crate::MAP_PERF_DATA.lock();
             guard
                 .backend_request_secs
                 .entry(self.name())
@@ -101,7 +101,7 @@ async fn load_tile(bytes: Vec<u8>) -> Result<Texture, TileError> {
         let image = image::load_from_memory(&bytes)?.into_rgba();
 
         let duration = start.elapsed();
-        let mut guard = crate::PERF_DATA.lock();
+        let mut guard = crate::MAP_PERF_DATA.lock();
         guard.tile_decode_time.add_sample(duration);
         Ok(image)
     })

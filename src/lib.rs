@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use conrod_core::{
     text::Font, widget, widget_ids, Colorable, Labelable, Positionable, Sizeable, Widget,
 };
@@ -13,6 +15,7 @@ mod ui_filter;
 mod util;
 
 pub use button_widget::*;
+use itertools::Itertools;
 pub use map::*;
 pub use map_renderer::*;
 pub use tile::*;
@@ -26,7 +29,7 @@ const MAX_ZOOM_LEVEL: u32 = 20;
 
 widget_ids!(pub struct Ids { debug_menu[], text, viewport, map_images[], squares[], tiles[], square_text[], weather_button, airplane_button, latitude_lines[], latitude_text[], longitude_lines[], longitude_text[], filter_widget });
 
-pub use util::PERF_DATA;
+pub use util::MAP_PERF_DATA;
 
 pub fn run_app() {
     // Create our UI's event loop
@@ -144,9 +147,15 @@ pub fn run_app() {
                         ui,
                     );
 
+                    let perf_data = crate::take_profile_data();
+
+                    let scope_debug_view = crate::profile_scope("Render Debug Information");
+                    let mut perf_data: Vec<_> = perf_data.into_iter().collect();
+                    perf_data.sort_unstable_by(|a, b| a.0.cmp(b.0));
+
                     //========== Draw Debug Text ==========
-                    let data = {
-                        let mut guard = PERF_DATA.lock();
+                    let map_data = {
+                        let mut guard = MAP_PERF_DATA.lock();
                         guard.snapshot()
                     };
 
@@ -156,19 +165,33 @@ pub fn run_app() {
                             frame_time_ms,
                             (1000.0 / frame_time_ms) as u32
                         ),
-                        format!("Zoom: {}, Tiles: {}", data.zoom, data.tiles_rendered),
+                        format!(
+                            "Zoom: {}, Tiles: {}",
+                            map_data.zoom, map_data.tiles_rendered
+                        ),
                         format!(
                             "Decode: {:.2}ms, Upload: {:.2}ms",
-                            data.tile_decode_time.as_secs_f64() * 1000.0,
-                            data.tile_upload_time.as_secs_f64() * 1000.0
+                            map_data.tile_decode_time.as_secs_f64() * 1000.0,
+                            map_data.tile_upload_time.as_secs_f64() * 1000.0
                         ),
                     ];
-                    for (backend_name, time) in data.backend_request_secs {
+                    for (backend_name, time) in map_data.backend_request_secs {
                         debug_text.push(format!(
                             " {}: {:.2}ms",
                             backend_name,
                             time.as_secs_f64() * 1000.0
                         ));
+                    }
+                    for (name, data) in perf_data {
+                        let samples = data.get_samples();
+                        let text = if samples.len() == 1 {
+                            format!("{}: {:?}", name, samples[0])
+                        } else {
+                            let avg: Duration =
+                                samples.iter().sum::<Duration>() / samples.len() as u32;
+                            format!("{}: {} times, {:?} avg", name, samples.len(), avg)
+                        };
+                        debug_text.push(text);
                     }
                     ids.debug_menu
                         .resize(debug_text.len(), &mut ui.widget_id_generator());
@@ -185,8 +208,10 @@ pub fn run_app() {
                         let y = ui.win_h / 2.0 - 8.0 - i as f64 * 11.0;
                         gui_text.x_y(x, y).set(ids.debug_menu[i], ui);
                     }
+                    scope_debug_view.end();
 
                     //========== Draw Buttons ==========
+                    let scope_render_buttons = crate::profile_scope("Render Buttons");
 
                     if let Some(_clicks) = CircularButton::image(airplane_ids.normal)
                         .x((ui.win_w / 2.0) * 0.95)
@@ -210,6 +235,7 @@ pub fn run_app() {
                     {
                         println!("{:?}", ui.xy_of(ids.filter_widget));
                     }
+                    scope_render_buttons.end();
 
                     //========== Request Redraw if the Ui Has Changed ==========
 

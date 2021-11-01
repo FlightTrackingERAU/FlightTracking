@@ -82,20 +82,23 @@ pub fn draw(
     ids: &mut crate::Ids,
     ui: &mut UiCell,
 ) {
+    let _scope = crate::profile_scope("map_renderer::draw");
     //Or value is okay here because `tile_size()` only returns `None` if no tiles are cached, which
     //only happens the first few frames, therefore this value doesn't need to be accurate
     let tile_size = 128;
 
+    let scope_tile_iter = crate::profile_scope("viewport::tile_iter");
     let it = view.tile_iter(tile_size, ui.win_w, ui.win_h);
     let size = it.tile_size;
     let offset = it.tile_offset;
     let zoom_level = it.tile_zoom;
+    scope_tile_iter.end();
 
     let tiles_vertically = it.tiles_vertically;
 
     let tiles: Vec<_> = it.collect();
     {
-        let mut guard = crate::PERF_DATA.lock();
+        let mut guard = crate::MAP_PERF_DATA.lock();
         guard.tiles_rendered = tiles.len();
         guard.zoom = zoom_level;
     }
@@ -113,6 +116,7 @@ pub fn draw(
     // axis, and right is the positive x axis.
     // The units are in terms of screen pixels, so on a window with a size of 1000x500 the point
     // (500, 250) would be the top right corner
+    let scope_render_tiles = crate::profile_scope("Render Tiles");
     for (i, tile) in tiles.into_iter().enumerate() {
         let tile_x = i / tiles_vertically as usize;
         let tile_y = i % tiles_vertically as usize;
@@ -141,7 +145,9 @@ pub fn draw(
             */
         }
     }
+    scope_render_tiles.end();
 
+    let scope_render_latitude = crate::profile_scope("Render Latitude");
     //Lines of latitude
     let lat_line_distance =
         line_distance_for_viewport_degrees(viewport.bottom_right.y - viewport.top_left.y, ui.win_h);
@@ -192,7 +198,9 @@ pub fn draw(
             .font_size(12)
             .set(ids.latitude_text[i], ui);
     }
+    scope_render_latitude.end();
 
+    let scope_render_longitude = crate::profile_scope("Render Longitude");
     //Lines of longitude
     let lng_line_distance =
         line_distance_for_viewport_degrees(viewport.bottom_right.x - viewport.top_left.x, ui.win_w);
@@ -244,4 +252,6 @@ pub fn draw(
             .font_size(12)
             .set(ids.longitude_text[i], ui);
     }
+
+    scope_render_longitude.end();
 }
