@@ -250,4 +250,20 @@ mod tests {
             assert_eq!(tile, u64_to_tile_coord(bits));
         }
     }
+
+    #[test]
+    fn tile_and_intmap() {
+        let tile = TileId {
+            x: 7,
+            y: 1,
+            zoom: 9,
+        };
+        let bits = tile_coord_to_u64(tile);
+        let mut map = intmap::IntMap::new();
+        map.insert(bits, true);
+
+        let bits = tile_coord_to_u64(tile);
+
+        assert_eq!(*map.get(bits).unwrap(), true);
+    }
 }

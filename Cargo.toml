@@ -22,12 +22,13 @@ itertools = "0.10"
 num = "0.4"
 lazy_static = "1.0"
 find_folder =  "0.3"
+rand = "0.8"
 
 tokio = { version = "1.12", features = ["full"]}
 async-trait = "0.1"
 
 image = "0.22"
-rain_viewer = "0.1"
+rain_viewer = "0.2"
 maptiler-cloud = "0.3"
 
 parking_lot = "0.11"

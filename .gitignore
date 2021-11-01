@@ -1,6 +1,6 @@
 /target
 Cargo.lock
-tile-cache/
+cache/
 
 #Debugging
 .gdb_history

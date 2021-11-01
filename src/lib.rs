@@ -27,7 +27,23 @@ const HEIGHT: u32 = 720;
 
 const MAX_ZOOM_LEVEL: u32 = 20;
 
-widget_ids!(pub struct Ids { debug_menu[], text, viewport, map_images[], squares[], tiles[], square_text[], weather_button, airplane_button, latitude_lines[], latitude_text[], longitude_lines[], longitude_text[], filter_widget });
+widget_ids!(pub struct Ids {
+    debug_menu[],
+    text,
+    viewport,
+    map_images[],
+    squares[],
+    tiles[],
+    weather_tiles[],
+    square_text[],
+    weather_button,
+    airplane_button,
+    latitude_lines[],
+    latitude_text[],
+    longitude_lines[],
+    longitude_text[],
+    filter_widget
+});
 
 pub use util::MAP_PERF_DATA;
 

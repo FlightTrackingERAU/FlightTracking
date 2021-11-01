@@ -103,21 +103,32 @@ pub fn draw(
         guard.zoom = zoom_level;
     }
 
+    ids.weather_tiles.resize(tiles.len(), &mut ui.widget_id_generator());
     ids.tiles.resize(tiles.len(), &mut ui.widget_id_generator());
     ids.square_text
         .resize(tiles.len(), &mut ui.widget_id_generator());
 
     let viewport = view.get_world_viewport(ui.win_w, ui.win_h);
 
-    let satellite = &mut tile_cache[TileKind::Satellite];
-    satellite.update(&viewport, display, image_map);
+    let mut cache_it = tile_cache.values_mut();
+    let satellite = cache_it.next().unwrap();
+    {
+        let _p = crate::profile_scope("Satellite Tile Cache Update");
+        satellite.update(&viewport, display, image_map);
+    }
+
+    let weather = cache_it.next().unwrap();
+    {
+        let _p = crate::profile_scope("Weather Tile Cache Update");
+        weather.update(&viewport, display, image_map);
+    }
 
     // The conrod coordinate system places 0, 0 in the center of the window. Up is the positive y
     // axis, and right is the positive x axis.
     // The units are in terms of screen pixels, so on a window with a size of 1000x500 the point
     // (500, 250) would be the top right corner
     let scope_render_tiles = crate::profile_scope("Render Tiles");
-    for (i, tile) in tiles.into_iter().enumerate() {
+    for (i, tile) in tiles.iter().enumerate() {
         let tile_x = i / tiles_vertically as usize;
         let tile_y = i % tiles_vertically as usize;
 
@@ -133,16 +144,14 @@ pub fn draw(
                 .x_y(x, y)
                 .wh(size.to_array())
                 .set(ids.tiles[i], ui);
-        } else if cfg!(debug_assertions) {
-            //Render debug tile information when run in debug mode
+        }
 
-            /*let text = format!("[{},{}]@{}", tile.0, tile.1, zoom_level);
-            Text::new(text.as_str())
+        if let Some(tile) = weather.get_tile(tile_id) {
+            println!("Got weather texture!: {:?}", tile_id);
+            Image::new(tile)
                 .x_y(x, y)
-                .color(conrod_core::color::WHITE)
-                .font_size(12)
-                .set(ids.square_text[i], ui);
-            */
+                .wh(size.to_array())
+                .set(ids.weather_tiles[i], ui);
         }
     }
     scope_render_tiles.end();
