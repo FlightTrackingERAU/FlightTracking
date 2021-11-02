@@ -64,6 +64,7 @@ widget_ids! {
     }
 }
 
+///Declaration of the Filter State
 pub struct FilterWidgetState {
     ids: FilterWidgetIds,
 }
@@ -121,6 +122,12 @@ impl<'a> FilterButton<'a> {
     pub fn enabled(mut self, flag: bool) -> Self {
         self.enabled = flag;
         self
+    }
+}
+
+impl<'a> Default for FilterButton<'a> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -231,7 +238,9 @@ fn label(button_id: widget::Id, label_id: widget::Id, label: &str, style: &Style
     let x = style.label_x(&ui.theme);
     let y = style.label_y(&ui.theme);
     let justify = style.label_justify(&ui.theme);
-    let font_id = style.label_font_id(&ui.theme).or(ui.fonts.ids().next());
+    let font_id = style
+        .label_font_id(&ui.theme)
+        .or_else(|| ui.fonts.ids().next());
     widget::Text::new(label)
         .and_then(font_id, widget::Text::font_id)
         .x_position_relative_to(button_id, x)
@@ -242,4 +251,24 @@ fn label(button_id: widget::Id, label_id: widget::Id, label: &str, style: &Style
         .color(color)
         .font_size(font_size)
         .set(label_id, ui);
+}
+
+pub fn draw(
+    widget_id: widget::id::Id,
+    ui: &mut UiCell,
+    label: String,
+    widget_x_position: f64,
+    widget_y_position: f64,
+) {
+    if let Some(_clicks) = FilterButton::new()
+        .x(widget_x_position)
+        .y(widget_y_position)
+        .w_h(150.0, 30.0)
+        .label_font_size(10)
+        .label_color(conrod_core::color::BLACK)
+        .label(label.as_str())
+        .set(widget_id, ui)
+    {
+        println!("{:?}", ui.xy_of(widget_id));
+    }
 }

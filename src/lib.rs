@@ -3,9 +3,11 @@ use std::time::Duration;
 use conrod_core::{
     text::Font, widget, widget_ids, Colorable, Labelable, Positionable, Sizeable, Widget,
 };
+//use conrod_core::{text::Font, widget, widget_ids, Colorable, Positionable, Sizeable, Widget};
 use glam::DVec2;
 use glium::Surface;
 
+mod airports;
 mod button_widget;
 mod map;
 mod map_renderer;
@@ -14,6 +16,7 @@ mod tile;
 mod ui_filter;
 mod util;
 
+pub use airports::*;
 pub use button_widget::*;
 use itertools::Itertools;
 pub use map::*;
@@ -42,7 +45,8 @@ widget_ids!(pub struct Ids {
     latitude_text[],
     longitude_lines[],
     longitude_text[],
-    filter_widget
+    filer_button[],
+    airports[]
 });
 
 pub use util::MAP_PERF_DATA;
@@ -71,9 +75,12 @@ pub fn run_app() {
     let airplane_image_bytes = include_bytes!("../assets/images/airplane-icon.png");
     let airplane_ids = return_image_essentials(&display, airplane_image_bytes, &mut image_map);
 
+    let weather_image_bytes = include_bytes!("../assets/images/weather-icon.png");
+    let weather_id = return_image_essentials(&display, weather_image_bytes, &mut image_map);
+
     let noto_sans_ttf = include_bytes!("../assets/fonts/NotoSans/NotoSans-Regular.ttf");
     let noto_sans = Font::from_bytes(noto_sans_ttf).expect("Failed to decode font");
-    let noto_sans = ui.fonts.insert(noto_sans);
+    let _noto_sans = ui.fonts.insert(noto_sans);
 
     let b612_ttf = include_bytes!("../assets/fonts/B612Mono/B612Mono-Regular.ttf");
     let b612 = Font::from_bytes(b612_ttf).expect("Failed to decode font");
@@ -87,6 +94,9 @@ pub fn run_app() {
     let runtime = tokio::runtime::Runtime::new().expect("Unable to create Tokio runtime!");
 
     let mut pipelines = tile::pipelines(&runtime);
+
+    let airports_bin = include_bytes!("../assets/data/airports.bin");
+    let airports = airports_from_bytes(airports_bin).expect("Failed to load airports");
 
     let mut should_update_ui = true;
     let mut viewer = map::TileView::new(0.0, 0.0, 2.0, 1080.0 / 2.0);
@@ -151,6 +161,7 @@ pub fn run_app() {
 
                     // Set the widgets.
                     let ui = &mut ui.set_widgets();
+                    ids.filer_button.resize(4, &mut ui.widget_id_generator());
 
                     //========== Draw Map ==========
 
@@ -163,6 +174,12 @@ pub fn run_app() {
                         ui,
                     );
 
+                    //========== Draw Airports ==========
+
+                    airports::airport_renderer::draw(&airports, &viewer, &display, &mut ids, ui);
+
+                    //========== Load Debug Data ==========
+
                     let perf_data = crate::take_profile_data();
 
                     let scope_debug_view = crate::profile_scope("Render Debug Information");
@@ -174,6 +191,9 @@ pub fn run_app() {
                         let mut guard = MAP_PERF_DATA.lock();
                         guard.snapshot()
                     };
+
+                    let widget_x_position = (ui.win_w / 2.0) * 0.95;
+                    let widget_y_position = (ui.win_h / 2.0) * 0.90;
 
                     let mut debug_text = vec![
                         format!(
@@ -229,31 +249,54 @@ pub fn run_app() {
                     //========== Draw Buttons ==========
                     let scope_render_buttons = crate::profile_scope("Render Buttons");
 
-                    if let Some(_clicks) = CircularButton::image(airplane_ids.normal)
-                        .x((ui.win_w / 2.0) * 0.95)
-                        .y((ui.win_h / 2.0) * 0.90)
-                        .w_h(50.0, 50.0)
-                        .label_color(conrod_core::color::WHITE)
-                        .label("Airplane Button")
-                        .set(ids.airplane_button, ui)
-                    {
-                        println!("{:?}", ui.xy_of(ids.airplane_button));
-                    }
+                    button_widget::draw_circle_with_image(
+                        ids.weather_button,
+                        ui,
+                        weather_id,
+                        widget_x_position,
+                        widget_y_position - 70.0,
+                    );
 
-                    if let Some(_clicks) = FilterButton::new()
-                        .left_from(ids.airplane_button, 50.0)
-                        .y((ui.win_h / 2.0) * 0.90)
-                        .w_h(150.0, 30.0)
-                        .label_color(conrod_core::color::BLACK)
-                        .label_font_size(10)
-                        .label("American Airlines")
-                        .set(ids.filter_widget, ui)
-                    {
-                        println!("{:?}", ui.xy_of(ids.filter_widget));
-                    }
+                    button_widget::draw_circle_with_image(
+                        ids.airplane_button,
+                        ui,
+                        airplane_ids,
+                        widget_x_position,
+                        widget_y_position,
+                    );
+
+                    ui_filter::draw(
+                        ids.filer_button[0],
+                        ui,
+                        String::from("American Airlanes"),
+                        widget_x_position - 130.0,
+                        widget_y_position,
+                    );
+
+                    ui_filter::draw(
+                        ids.filer_button[1],
+                        ui,
+                        String::from("Spirit"),
+                        widget_x_position - 130.0,
+                        widget_y_position - 40.0,
+                    );
+
+                    ui_filter::draw(
+                        ids.filer_button[2],
+                        ui,
+                        String::from("Southwest"),
+                        widget_x_position - 130.0,
+                        widget_y_position - 80.0,
+                    );
+
+                    ui_filter::draw(
+                        ids.filer_button[3],
+                        ui,
+                        String::from("United"),
+                        widget_x_position - 130.0,
+                        widget_y_position - 120.0,
+                    );
                     scope_render_buttons.end();
-
-                    //========== Request Redraw if the Ui Has Changed ==========
 
                     display.gl_window().window().request_redraw();
                 }

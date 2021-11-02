@@ -103,4 +103,3 @@ pub async fn load_tile(bytes: Vec<u8>) -> Result<Texture, TileError> {
     assert_eq!(image.width(), image.height());
     Ok(image)
 }
-

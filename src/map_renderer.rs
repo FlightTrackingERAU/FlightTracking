@@ -87,12 +87,10 @@ pub fn draw(
     //only happens the first few frames, therefore this value doesn't need to be accurate
     let tile_size = 128;
 
-    let scope_tile_iter = crate::profile_scope("viewport::tile_iter");
     let it = view.tile_iter(tile_size, ui.win_w, ui.win_h);
     let size = it.tile_size;
     let offset = it.tile_offset;
     let zoom_level = it.tile_zoom;
-    scope_tile_iter.end();
 
     let tiles_vertically = it.tiles_vertically;
 
@@ -103,7 +101,8 @@ pub fn draw(
         guard.zoom = zoom_level;
     }
 
-    ids.weather_tiles.resize(tiles.len(), &mut ui.widget_id_generator());
+    ids.weather_tiles
+        .resize(tiles.len(), &mut ui.widget_id_generator());
     ids.tiles.resize(tiles.len(), &mut ui.widget_id_generator());
     ids.square_text
         .resize(tiles.len(), &mut ui.widget_id_generator());
