@@ -148,6 +148,7 @@ pub fn draw(
         };
 
     render_tile_set(satellite, view, &mut ids.satellite_tiles);
+    render_tile_set(weather, view, &mut ids.weather_tiles);
 
     let scope_render_latitude = crate::profile_scope("Render Latitude");
     //Lines of latitude
