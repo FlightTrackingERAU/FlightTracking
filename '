@@ -1,0 +1,102 @@
+use std::sync::{Arc, Mutex};
+use tokio::runtime::Runtime;
+
+use opensky_api::{errors::Error, StateVector};
+
+pub struct Plane {
+    longitude: f32,
+    latitude: f32,
+    on_ground: bool,
+}
+impl Plane {
+    pub fn new(longitude: f32, latitude: f32, on_ground: bool) -> Self {
+        Plane {
+            longitude,
+            latitude,
+            on_ground,
+        }
+    }
+}
+
+pub struct PlaneRequester {
+    planes: Arc<Mutex<Vec<Plane>>>,
+}
+
+impl<'a> PlaneRequester {
+    pub fn new(&mut self, runtime: &mut Runtime) {
+        self.planes = Arc::new(Mutex::new(Vec::new()));
+
+        runtime.spawn(plane_data(self.planes.clone()));
+    }
+}
+
+async fn plane_data(list_of_planes: Arc<Mutex<Vec<Plane>>>) {
+    loop {
+        match request_plane_data().await {
+            Ok(pane_data)=> {
+            }
+        }
+
+        {
+            let mut guard = list_of_planes.lock().unwrap();
+            *guard = plane_data;
+        }
+
+        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+    }
+}
+
+//Request the plane data and makes it into a Vec
+async fn request_plane_data() -> Result<Vec<Plane>, Error> {
+    let open_sky = opensky_api::OpenSkyApi::new();
+
+    let state_request = open_sky.get_states();
+
+    let open_sky = state_request.send().await?;
+    let mut plane_list = Vec::new();
+    for state in open_sky.states {
+        let longitude = state.longitude;
+        let latitude = state.latitude;
+        let on_ground = state.on_ground;
+
+        if let Some(longitude) = longitude {
+            let latitude = latitude.unwrap();
+
+            let plane = Plane {
+                longitude,
+                latitude,
+                on_ground,
+            };
+            plane_list.push(plane);
+        }
+    }
+    Ok(plane_list)
+}
+
+mod tests {
+    #[tokio::test]
+    async fn it_works() {
+        let opensky_api = opensky_api::OpenSkyApi::new();
+        let state_request = opensky_api.get_states();
+
+        let _states = state_request.send().await;
+    }
+    #[tokio::test]
+    async fn request_plane_list() {
+        use super::request_plane_data;
+
+        let _plane_list = request_plane_data().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn testing_plane_data() {
+        use super::plane_data;
+        use super::Arc;
+        use super::Mutex;
+        use super::Plane;
+
+        let d: Arc<Mutex<Vec<Plane>>> = Arc::new(Mutex::new(Vec::new()));
+
+        let _plane_list = plane_data(d);
+    }
+}
