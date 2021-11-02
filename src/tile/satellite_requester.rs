@@ -40,4 +40,8 @@ impl Backend for SatelliteRequester {
     async fn readiness(&self, tile: TileId) -> ReadinessStatus {
         ReadinessStatus::Unknown
     }
+
+    fn tile_size(&self) -> Option<u32> {
+        Some(128)
+    }
 }

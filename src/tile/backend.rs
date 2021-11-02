@@ -80,6 +80,8 @@ pub trait Backend: Send + Sync {
 
     fn name(&self) -> &'static str;
 
+    fn tile_size(&self) -> Option<u32>;
+
     /// Requests a tile from the this backend, returning the image bytes if the tile could be
     /// requested successfully
     async fn request_inner(&self, tile: TileId) -> Result<Option<Vec<u8>>, TileError>;

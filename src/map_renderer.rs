@@ -1,5 +1,5 @@
 use conrod_core::{
-    widget::{Image, Line, Text},
+    widget::{id::List, Image, Line, Text},
     Colorable, Positionable, Sizeable, UiCell, Widget,
 };
 
@@ -85,74 +85,69 @@ pub fn draw(
     let _scope = crate::profile_scope("map_renderer::draw");
     //Or value is okay here because `tile_size()` only returns `None` if no tiles are cached, which
     //only happens the first few frames, therefore this value doesn't need to be accurate
-    let tile_size = 128;
-
-    let it = view.tile_iter(tile_size, ui.win_w, ui.win_h);
-    let size = it.tile_size;
-    let offset = it.tile_offset;
-    let zoom_level = it.tile_zoom;
-
-    let tiles_vertically = it.tiles_vertically;
-
-    let tiles: Vec<_> = it.collect();
-    {
-        let mut guard = crate::MAP_PERF_DATA.lock();
-        guard.tiles_rendered = tiles.len();
-        guard.zoom = zoom_level;
-    }
-
-    ids.weather_tiles
-        .resize(tiles.len(), &mut ui.widget_id_generator());
-    ids.tiles.resize(tiles.len(), &mut ui.widget_id_generator());
-    ids.square_text
-        .resize(tiles.len(), &mut ui.widget_id_generator());
-
     let viewport = view.get_world_viewport(ui.win_w, ui.win_h);
 
     let mut cache_it = tile_cache.values_mut();
     let satellite = cache_it.next().unwrap();
+    let weather = cache_it.next().unwrap();
+
     {
         let _p = crate::profile_scope("Satellite Tile Cache Update");
         satellite.update(&viewport, display, image_map);
     }
 
-    let weather = cache_it.next().unwrap();
     {
         let _p = crate::profile_scope("Weather Tile Cache Update");
         weather.update(&viewport, display, image_map);
     }
 
-    // The conrod coordinate system places 0, 0 in the center of the window. Up is the positive y
-    // axis, and right is the positive x axis.
-    // The units are in terms of screen pixels, so on a window with a size of 1000x500 the point
-    // (500, 250) would be the top right corner
-    let scope_render_tiles = crate::profile_scope("Render Tiles");
-    for (i, tile) in tiles.iter().enumerate() {
-        let tile_x = i / tiles_vertically as usize;
-        let tile_y = i % tiles_vertically as usize;
+    let mut render_tile_set =
+        |pipeline: &mut TilePipeline, view: &crate::map::TileView, ids: &mut List| {
+            let tile_size = pipeline.tile_size().unwrap();
 
-        let half_width = ui.win_w / 2.0;
-        let half_height = ui.win_h / 2.0;
-        let x = offset.x + tile_x as f64 * size.x - half_width + size.x / 2.0;
-        let y = offset.y - (tile_y as f64 * size.y) + half_height + size.y / 2.0;
+            let it = view.tile_iter(tile_size, ui.win_w, ui.win_h);
+            let size = it.tile_size;
+            let offset = it.tile_offset;
+            let zoom_level = it.tile_zoom;
 
-        let tile_id = TileId::new(tile.0, tile.1, zoom_level);
+            let tiles_vertically = it.tiles_vertically;
 
-        if let Some(tile) = satellite.get_tile(tile_id) {
-            Image::new(tile)
-                .x_y(x, y)
-                .wh(size.to_array())
-                .set(ids.tiles[i], ui);
-        }
+            let tiles: Vec<_> = it.collect();
+            {
+                let mut guard = crate::MAP_PERF_DATA.lock();
+                guard.tiles_rendered = tiles.len();
+                guard.zoom = zoom_level;
+            }
 
-        if let Some(tile) = weather.get_tile(tile_id) {
-            Image::new(tile)
-                .x_y(x, y)
-                .wh(size.to_array())
-                .set(ids.weather_tiles[i], ui);
-        }
-    }
-    scope_render_tiles.end();
+            ids.resize(tiles.len(), &mut ui.widget_id_generator());
+
+            // The conrod coordinate system places 0, 0 in the center of the window. Up is the positive y
+            // axis, and right is the positive x axis.
+            // The units are in terms of screen pixels, so on a window with a size of 1000x500 the point
+            // (500, 250) would be the top right corner
+            let scope_render_tiles = crate::profile_scope("Render Tiles");
+            for (i, tile) in tiles.iter().enumerate() {
+                let tile_x = i / tiles_vertically as usize;
+                let tile_y = i % tiles_vertically as usize;
+
+                let half_width = ui.win_w / 2.0;
+                let half_height = ui.win_h / 2.0;
+                let x = offset.x + tile_x as f64 * size.x - half_width + size.x / 2.0;
+                let y = offset.y - (tile_y as f64 * size.y) + half_height + size.y / 2.0;
+
+                let tile_id = TileId::new(tile.0, tile.1, zoom_level);
+
+                if let Some(tile) = pipeline.get_tile(tile_id) {
+                    Image::new(tile)
+                        .x_y(x, y)
+                        .wh(size.to_array())
+                        .set(ids[i], ui);
+                }
+            }
+            scope_render_tiles.end();
+        };
+
+    render_tile_set(satellite, view, &mut ids.satellite_tiles);
 
     let scope_render_latitude = crate::profile_scope("Render Latitude");
     //Lines of latitude

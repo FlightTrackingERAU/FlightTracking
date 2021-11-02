@@ -1,3 +1,8 @@
+use std::{
+    path::PathBuf,
+    sync::atomic::{AtomicU32, Ordering},
+};
+
 use super::{Backend, ReadinessStatus, TileError, TileId};
 use async_trait::async_trait;
 
@@ -52,5 +57,44 @@ impl Backend for DiskCache {
 
     fn name(&self) -> &'static str {
         "Disk"
+    }
+
+    fn tile_size(&self) -> Option<u32> {
+        //Traverse directory tree, and return length of first image
+        fn inner(mut dir_path: PathBuf) -> Result<u32, std::io::Error> {
+            let it1 = std::fs::read_dir(&dir_path)?;
+            for entry in it1.flatten() {
+                if let Ok(metadata) = entry.metadata() {
+                    if metadata.is_file() {
+                        let path = entry.path();
+                        if let Ok(bytes) = std::fs::read(&path) {
+                            if let Ok(image) = image::load_from_memory(&bytes[..]) {
+                                let rgb = image.to_rgb();
+                                let str_path = path.to_string_lossy();
+                                if rgb.width() != rgb.height() {
+                                    panic!("Image in cache: {}, is not square", str_path);
+                                }
+                                println!(
+                                    "Using image {} as model cache size: {}",
+                                    str_path,
+                                    rgb.width()
+                                );
+                                return Ok(rgb.width());
+                            }
+                        }
+                    } else if metadata.is_dir() {
+                        dir_path.push(entry.file_name());
+                        //Recurse directory structure
+                        if let Ok(size) = inner(dir_path.clone()) {
+                            return Ok(size);
+                        }
+                        dir_path.pop();
+                    }
+                }
+            }
+            Err(std::io::Error::last_os_error())
+        }
+
+        inner(PathBuf::from(self.folder_name.as_str())).ok()
     }
 }

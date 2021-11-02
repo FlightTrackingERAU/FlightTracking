@@ -32,6 +32,7 @@ struct WeatherData {
 pub struct WeatherRequester {
     available: tokio::sync::RwLock<Option<WeatherData>>,
     state: AtomicWeatherDataState,
+    tile_size: u32,
 }
 
 impl WeatherRequester {
@@ -39,6 +40,7 @@ impl WeatherRequester {
         Self {
             available: tokio::sync::RwLock::new(None),
             state: AtomicWeatherDataState::new(WeatherDataState::Uninitialized),
+            tile_size: 512,
         }
     }
 }
@@ -114,8 +116,7 @@ impl Backend for WeatherRequester {
                         //We need to check for new updates if we are available
                         if Instant::now().duration_since(available.time)
                             > Duration::from_secs(60 * 5)
-                        {
-                            if self
+                            && self
                                 .state
                                 .compare_exchange(
                                     WeatherDataState::Available,
@@ -124,26 +125,26 @@ impl Backend for WeatherRequester {
                                     Ordering::Relaxed,
                                 )
                                 .is_ok()
-                            {
-                                //We were able to modify the state to AvailableUpdating.
-                                //This means its our responsibility to load the new data
-                                drop(guard);
-                                println!("Task is getting new data");
-                                if let Ok(new_data) = self.update_maps().await {
-                                    *self.available.write().await = Some(new_data);
-                                    println!("Loaded new data");
-                                }
-
-                                self.state
-                                    .store(WeatherDataState::Available, Ordering::Release);
-                                continue;
+                        {
+                            //We were able to modify the state to AvailableUpdating.
+                            //This means its our responsibility to load the new data
+                            drop(guard);
+                            println!("Task is getting new data");
+                            if let Ok(new_data) = self.update_maps().await {
+                                *self.available.write().await = Some(new_data);
+                                println!("Loaded new data");
                             }
+
+                            self.state
+                                .store(WeatherDataState::Available, Ordering::Release);
+                            continue;
                         }
                     }
 
                     if let Some(last_frame) = available.data.nowcast_radar.last() {
                         if let Ok(mut args) = RequestArguments::new_tile(tile.x, tile.y, tile.zoom)
                         {
+                            args.set_size(self.tile_size).unwrap();
                             args.set_color(rain_viewer::ColorKind::TheWeatherChannel);
                             match rain_viewer::get_tile(&available.data, last_frame, args).await {
                                 Ok(bytes) => {
@@ -160,7 +161,7 @@ impl Backend for WeatherRequester {
         }
     }
 
-    async fn readiness(&self, tile: TileId) -> ReadinessStatus {
+    async fn readiness(&self, _tile: TileId) -> ReadinessStatus {
         ReadinessStatus::Unknown
     }
 
@@ -184,5 +185,9 @@ impl Backend for WeatherRequester {
             Some(bytes) => Ok(Some(load_tile(bytes).await?)),
             None => Ok(None),
         }
+    }
+
+    fn tile_size(&self) -> Option<u32> {
+        Some(self.tile_size)
     }
 }

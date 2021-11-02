@@ -9,6 +9,7 @@ use tokio::runtime::Runtime;
 use tokio::sync::mpsc::{Receiver, Sender, UnboundedReceiver, UnboundedSender};
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -23,9 +24,11 @@ pub struct TilePipeline {
     /// The cache of tiles on the GPU
     // Use a blocking mutex here because contention is low, and the critical section is short
     //cache: Mutex<IntMap<CachedTile>>,
+    backends: Arc<Vec<Box<dyn Backend>>>,
     cache: Mutex<HashMap<TileId, CachedTile>>,
     upload_rx: Receiver<MemoryTile>,
     request_tx: UnboundedSender<TileId>,
+    tile_size: AtomicU32,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -41,12 +44,15 @@ impl TilePipeline {
         let (upload_tx, upload_rx) = tokio::sync::mpsc::channel(24);
         let (request_tx, request_rx) = tokio::sync::mpsc::unbounded_channel();
 
-        runtime.spawn(tile_requester(upload_tx, request_rx, Arc::new(backends)));
+        let backends = Arc::new(backends);
+        runtime.spawn(tile_requester(upload_tx, request_rx, backends.clone()));
         Self {
             //cache: Mutex::new(IntMap::with_capacity(1024)),
             cache: Mutex::new(HashMap::with_capacity(1024)),
             upload_rx,
             request_tx,
+            backends,
+            tile_size: AtomicU32::new(0),
         }
     }
 
@@ -73,12 +79,28 @@ impl TilePipeline {
         None
     }
 
+    pub fn tile_size(&self) -> Option<u32> {
+        let cached_size = self.tile_size.load(Ordering::Relaxed);
+        if cached_size != 0 {
+            return Some(cached_size);
+        }
+
+        for backend in self.backends.iter() {
+            if let Some(size) = backend.tile_size() {
+                println!("Backend {} gave size: {}", backend.name(), size);
+                self.tile_size.store(size, Ordering::Relaxed);
+                return Some(size);
+            }
+        }
+        None
+    }
+
     /// Called each frame to allow the pipeline to upload newly fetched tiles to the GPU.
     ///
     /// `viewport`: The viewport of the currently rendered scene. This is used for preemption
     pub fn update(
         &mut self,
-        viewport: &WorldViewport,
+        _viewport: &WorldViewport,
         display: &glium::Display,
         image_map: &mut conrod_core::image::Map<glium::Texture2d>,
     ) {
