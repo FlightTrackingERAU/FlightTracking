@@ -23,7 +23,7 @@ pub struct WorldViewport {
     /// The following are always guaranteed to be true for a `WorldViewport` returned from this
     /// this file:
     /// - `top_left.x <= bottom_right.x`
-    /// - `top_left.x <= bottom_right.y`
+    /// - `top_left.y <= bottom_right.y`
     pub top_left: DVec2,
 
     /// The bottom right of the viewport

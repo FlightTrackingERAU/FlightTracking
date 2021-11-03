@@ -7,7 +7,7 @@ use crate::tile::{self, *};
 
 /// Projects a x world location combined with a viewport to determine the x pixel location in the
 /// conrad coordinate system
-fn world_x_to_pixel_x(
+pub fn world_x_to_pixel_x(
     world_x: f64,
     viewport: &crate::map::WorldViewport,
     window_width: f64,
@@ -24,7 +24,7 @@ fn world_x_to_pixel_x(
 
 /// Projects a y world location combined with a viewport to determine the y pixel location in the
 /// conrad coordinate system
-fn world_y_to_pixel_y(
+pub fn world_y_to_pixel_y(
     world_y: f64,
     viewport: &crate::map::WorldViewport,
     window_height: f64,

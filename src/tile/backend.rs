@@ -77,7 +77,7 @@ pub trait Backend: Send + Sync {
         }
     }
 
-    /// Queries the readiness status for a given tile in this backend. 
+    /// Queries the readiness status for a given tile in this backend.
     ///
     /// Can be used to improve the performance when doing tile preemption
     async fn readiness(&self, tile: TileId) -> ReadinessStatus;
@@ -95,7 +95,7 @@ pub trait Backend: Send + Sync {
     async fn request_inner(&self, tile: TileId) -> Result<Option<Vec<u8>>, TileError>;
 }
 
-/// Decodes a compressed png or jpeg image into a RGBA memory byte buffer. 
+/// Decodes a compressed png or jpeg image into a RGBA memory byte buffer.
 ///
 /// Users will usually call this and then upload the result to the GPU
 pub async fn load_tile(bytes: Vec<u8>) -> Result<Texture, TileError> {

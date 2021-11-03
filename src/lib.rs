@@ -9,8 +9,10 @@ mod airports;
 mod button_widget;
 mod map;
 mod map_renderer;
-mod support;
 mod tile;
+mod plane_renderer;
+mod request_plane;
+mod support;
 mod ui_filter;
 mod util;
 
@@ -19,6 +21,8 @@ pub use button_widget::*;
 pub use map::*;
 pub use map_renderer::*;
 pub use tile::*;
+pub use plane_renderer::*;
+pub use request_plane::*;
 pub use ui_filter::*;
 pub use util::*;
 
@@ -41,7 +45,8 @@ widget_ids!(pub struct Ids {
     longitude_lines[],
     longitude_text[],
     filer_button[],
-    airports[]
+    airports[],
+    planes[]
 });
 
 pub use util::MAP_PERF_DATA;
@@ -93,6 +98,7 @@ pub fn run_app() {
     let runtime = tokio::runtime::Runtime::new().expect("Unable to create Tokio runtime!");
 
     let mut pipelines = tile::pipelines(&runtime);
+    let mut plane_requester = PlaneRequester::new(&runtime);
 
     let airports_bin = include_bytes!("../assets/data/airports.bin");
     let airports = airports_from_bytes(airports_bin).expect("Failed to load airports");
@@ -183,6 +189,9 @@ pub fn run_app() {
 
                     airports::airport_renderer::draw(&airports, &viewer, &display, &mut ids, ui);
 
+                    //=========Draw Plane============
+                    plane_renderer::draw(&mut plane_requester, &viewer, &mut ids, airplane_ids, ui);
+
                     //========== Draw Debug Data ==========
 
                     let perf_data = crate::take_profile_data();
@@ -247,8 +256,9 @@ pub fn run_app() {
                             let y = ui.win_h / 2.0 - 8.0 - i as f64 * 11.0;
                             gui_text.x_y(x, y).set(ids.debug_menu[i], ui);
                         }
-                    }
 
+              
+                    }
                     //========== Draw Buttons ==========
                     let scope_render_buttons = crate::profile_scope("Render Buttons");
 

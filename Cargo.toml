@@ -30,6 +30,7 @@ thiserror = "1.0"
 image = "0.22"
 rain_viewer = "0.2"
 maptiler-cloud = "0.3"
+opensky_api = "0.1.4"
 
 tokio = { version = "1.12", features = ["full"]}
 serde = { version = "1.0", features = ["derive"] }
