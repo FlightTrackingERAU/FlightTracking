@@ -157,14 +157,14 @@ pub fn run_app() {
                         &mut ids,
                         ui,
                     );
-                  
+
                     //========== Draw Airports ==========
 
                     airports::airport_renderer::draw(&airports, &viewer, &display, &mut ids, ui);
 
                     //=========Draw Plane============
                     plane_renderer::draw(&mut plane_requester, &viewer, &mut ids, airplane_ids, ui);
-                  
+
                     //========== Draw Debug Text ==========
                     let data = {
                         let mut guard = PERF_DATA.lock();
