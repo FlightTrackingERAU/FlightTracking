@@ -12,8 +12,8 @@ use disk_cache::*;
 use satellite_requester::*;
 use weather_requester::*;
 
-use std::time::Duration;
 use enum_map::{enum_map, Enum, EnumMap};
+use std::time::Duration;
 use tokio::runtime::Runtime;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]

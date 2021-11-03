@@ -1,8 +1,6 @@
 use std::time::Duration;
 
-use conrod_core::{
-    text::Font, widget, widget_ids, Colorable, Positionable, Sizeable, Widget,
-};
+use conrod_core::{text::Font, widget, widget_ids, Colorable, Positionable, Sizeable, Widget};
 //use conrod_core::{text::Font, widget, widget_ids, Colorable, Positionable, Sizeable, Widget};
 use glam::DVec2;
 use glium::Surface;
