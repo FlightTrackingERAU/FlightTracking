@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 use parking_lot::Mutex;
 use simple_moving_average::{SumTreeSMA, SMA};
 
+/// The performance data recorded across the entire application relating to tiles
 pub struct PerformanceData {
     pub tiles_rendered: usize,
     pub tiles_on_gpu: usize,
@@ -14,6 +15,8 @@ pub struct PerformanceData {
     pub tile_upload_time: SumTreeSMA<Duration, u32, 16>,
 }
 
+/// Largely the same as [`PerformanceData`], but is clone for getting a snapshot out of the mutex
+/// in order to release it as quickly as possible
 #[derive(Clone)]
 pub struct PerformanceDataSnapshot {
     pub tiles_rendered: usize,
@@ -26,10 +29,12 @@ pub struct PerformanceDataSnapshot {
 }
 
 lazy_static! {
+    /// The global performance data for tile data
     pub static ref MAP_PERF_DATA: Mutex<PerformanceData> = Mutex::new(Default::default());
 }
 
 impl PerformanceData {
+    /// Takes a snapshot of the current data, collecting the counters into one snapshot
     pub fn snapshot(&mut self) -> PerformanceDataSnapshot {
         PerformanceDataSnapshot {
             tiles_rendered: self.tiles_rendered,

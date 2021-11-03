@@ -5,6 +5,8 @@ use conrod_core::{
 
 use crate::tile::{self, *};
 
+/// Projects a x world location combined with a viewport to determine the x pixel location in the
+/// conrad coordinate system
 fn world_x_to_pixel_x(
     world_x: f64,
     viewport: &crate::map::WorldViewport,
@@ -20,6 +22,8 @@ fn world_x_to_pixel_x(
     )
 }
 
+/// Projects a y world location combined with a viewport to determine the y pixel location in the
+/// conrad coordinate system
 fn world_y_to_pixel_y(
     world_y: f64,
     viewport: &crate::map::WorldViewport,
@@ -74,6 +78,9 @@ fn world_width_from_longitude(lng: f64) -> f64 {
     lng / 360.0
 }
 
+/// The state needed to render the map.
+///
+/// Implemented as a struct to reduce the number of parameters passed to the map_render function
 pub struct MapRendererState<'a, 'b, 'c, 'd, 'e> {
     pub tile_cache: &'a mut tile::PipelineMap,
     pub view: &'b crate::map::TileView,
@@ -83,6 +90,8 @@ pub struct MapRendererState<'a, 'b, 'c, 'd, 'e> {
     pub weather_enabled: bool,
 }
 
+/// Draws the satellite tiles, weather tiles (if enabled), latitude lines, and longitude lines,
+/// using the `view` inside `state`
 pub fn draw(state: MapRendererState, ui: &mut UiCell<'_>) {
     let _scope = crate::profile_scope("map_renderer::draw");
     //Or value is okay here because `tile_size()` only returns `None` if no tiles are cached, which

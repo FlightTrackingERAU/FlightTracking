@@ -46,6 +46,7 @@ widget_ids!(pub struct Ids {
 
 pub use util::MAP_PERF_DATA;
 
+/// The app's "main" function. Our real main inside `main.rs` calls this function
 pub fn run_app() {
     // Create our UI's event loop
     let event_loop = glium::glutin::event_loop::EventLoop::new();

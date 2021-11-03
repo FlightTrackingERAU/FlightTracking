@@ -4,6 +4,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+/// A group of associated samples that correspond with the length of an operation
 #[derive(Clone, Debug)]
 pub struct NamedSample {
     completed: Vec<Duration>,
@@ -25,6 +26,11 @@ thread_local! {
     static SAMPLES: Samples = Samples(Mutex::new(HashMap::new()));
 }
 
+/// Begins a sampling scope that associates the length of time `ScopeSampler` is alive to name
+/// `name`.
+///
+/// Once `ScopeSampler` is dropped, there will be an entry name in [`take_profile_data`] with the
+/// correspond duration `ScopeSampler` was alive for. Can be repeated to add more samples to `name`.
 pub fn profile_scope(name: &'static str) -> ScopeSampler {
     SAMPLES.with(|samples| {
         samples.start(name);
@@ -32,21 +38,31 @@ pub fn profile_scope(name: &'static str) -> ScopeSampler {
     ScopeSampler { name }
 }
 
+/// Takes the map associating named scopes to their duration, leaving an empty map.
+///
+/// To gather profiling data each frame, this function should be called once per frame, with
+/// [`profile_scope`] being called many times for each bit of code that should be sampled.
 pub fn take_profile_data() -> HashMap<&'static str, NamedSample> {
     SAMPLES.with(|samples| {
-        let mut guard = samples.0.lock().unwrap();
         let mut result = HashMap::new();
-        std::mem::swap(&mut result, &mut guard);
+        {
+            let mut guard = samples.0.lock().unwrap();
+            std::mem::swap(&mut result, &mut guard);
+        }
 
         result
     })
 }
 
+/// A kind of profiling guard that captures the length `self` is alive for
 pub struct ScopeSampler {
     name: &'static str,
 }
 
 impl ScopeSampler {
+    /// Ends this sample.
+    ///
+    /// Calling this function is equivalent to dropping `self`
     pub fn end(self) {
         //Our implementation of drop takes care of ending the profile
         let _ = self;

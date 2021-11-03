@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-pub struct MemoryTile {
+struct MemoryTile {
     pub id: TileId,
     pub image: image::RgbaImage,
 }
@@ -20,10 +20,12 @@ pub struct MemoryTile {
 /// Holds multiple levels of cache for requesting tiles in a generic manner.
 /// Handles preemption and de-duplicating tile requests so that only one is sent out
 pub struct TilePipeline {
+    /// The list of backends in use by this pipeline. Lower indices are queried first
+    backends: Arc<Vec<Box<dyn Backend>>>,
+
     /// The cache of tiles on the GPU
     // Use a blocking mutex here because contention is low, and the critical section is short
     //cache: Mutex<IntMap<CachedTile>>,
-    backends: Arc<Vec<Box<dyn Backend>>>,
     cache: Mutex<HashMap<TileId, CachedTile>>,
     upload_rx: Receiver<MemoryTile>,
     request_tx: UnboundedSender<TileId>,
@@ -37,6 +39,9 @@ enum CachedTile {
 }
 
 impl TilePipeline {
+    /// Creates a new `TilePipeline` with the given backends.
+    ///
+    /// Uses `runtime` to spawn required asynchronous background tasks
     pub fn new(backends: Vec<Box<dyn Backend>>, runtime: &Runtime) -> Self {
         //Use large initial size here because we will have a few hundred tiles on the GPU at
         //minimum, and rehashing is EXPENSIVE
@@ -55,6 +60,8 @@ impl TilePipeline {
         }
     }
 
+    /// Fetches the image id of `tile`, or starts loading the texture,
+    /// returning None on this frame and subsequent frames until the asynchronous request finishes
     pub fn get_tile(&mut self, tile: TileId) -> Option<conrod_core::image::Id> {
         //TODO: Have the caller pass the lock in so that we dont lock, unlock, then lock again
         {
@@ -78,6 +85,7 @@ impl TilePipeline {
         None
     }
 
+    /// Returns the size of tiles returned by this pipeline, or `None` or unknown
     pub fn tile_size(&self) -> Option<u32> {
         let cached_size = self.tile_size.load(Ordering::Relaxed);
         if cached_size != 0 {
@@ -136,6 +144,8 @@ impl TilePipeline {
     }
 }
 
+/// An infinite async loop that waits for tile requests, and dispatches them through the levels of
+/// cache to produce a texture
 async fn tile_requester(
     upload_tx: Sender<MemoryTile>,
     mut request_rx: UnboundedReceiver<TileId>,
@@ -166,6 +176,7 @@ async fn tile_requester(
     }
 }
 
+/// Uploads an RGBA texture to the GPU
 fn create_texture(display: &glium::Display, image: image::RgbaImage) -> glium::Texture2d {
     let image_dimensions = image.dimensions();
     let start = std::time::Instant::now();
@@ -193,6 +204,7 @@ const MAX_COORD: u32 = 2u32.pow(COORD_BITS);
 const X_OFFSET: u32 = COORD_BITS + ZOOM_BITS;
 const Y_OFFSET: u32 = ZOOM_BITS;
 
+/// Encodes a tile coordinate into a u64
 pub fn tile_coord_to_u64(tile: TileId) -> u64 {
     //Nobody provides tiles for zoom levels > 20 anyway so we are okay to turn this off in release mode
     //This function is very hot too
@@ -210,6 +222,7 @@ pub fn tile_coord_to_u64(tile: TileId) -> u64 {
     x << X_OFFSET | y << Y_OFFSET | zoom
 }
 
+/// Decodes a tile coordinate from u64
 pub fn u64_to_tile_coord(bits: u64) -> TileId {
     const ZOOM_MASK: u64 = 2u64.pow(ZOOM_BITS) - 1;
     const COORD_MASK: u64 = (MAX_COORD - 1) as u64;
