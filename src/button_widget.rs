@@ -386,6 +386,8 @@ impl<'a, S> Labelable<'a> for CircularButton<'a, S> {
     }
 }
 
+///Makes a Circle Widget with an ImageId given.
+///Takes x and y to position Widget.
 pub fn draw_circle_with_image(
     widget: widget::id::Id,
     ui: &mut UiCell,
