@@ -95,13 +95,3 @@ async fn request_plane_data() -> Result<Vec<Plane>, Error> {
 
     Ok(plane_list)
 }
-
-mod plane_test {
-
-    #[tokio::test]
-    async fn request_plane_list() {
-        use super::request_plane_data;
-
-        let _plane_list = request_plane_data().await.unwrap();
-    }
-}
