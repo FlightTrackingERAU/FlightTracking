@@ -9,10 +9,10 @@ mod airports;
 mod button_widget;
 mod map;
 mod map_renderer;
-mod tile;
 mod plane_renderer;
 mod request_plane;
 mod support;
+mod tile;
 mod ui_filter;
 mod util;
 
@@ -20,9 +20,9 @@ pub use airports::*;
 pub use button_widget::*;
 pub use map::*;
 pub use map_renderer::*;
-pub use tile::*;
 pub use plane_renderer::*;
 pub use request_plane::*;
+pub use tile::*;
 pub use ui_filter::*;
 pub use util::*;
 
@@ -256,8 +256,6 @@ pub fn run_app() {
                             let y = ui.win_h / 2.0 - 8.0 - i as f64 * 11.0;
                             gui_text.x_y(x, y).set(ids.debug_menu[i], ui);
                         }
-
-              
                     }
                     //========== Draw Buttons ==========
                     let scope_render_buttons = crate::profile_scope("Render Buttons");
