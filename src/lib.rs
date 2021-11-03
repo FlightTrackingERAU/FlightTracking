@@ -2,6 +2,7 @@ use conrod_core::{text::Font, widget, widget_ids, Colorable, Positionable, Sizea
 use glam::DVec2;
 use glium::Surface;
 
+mod airports;
 mod button_widget;
 mod map;
 mod map_renderer;
@@ -13,6 +14,7 @@ mod tile_requester;
 mod ui_filter;
 mod util;
 
+pub use airports::*;
 pub use button_widget::*;
 pub use map::*;
 pub use map_renderer::*;
@@ -28,7 +30,7 @@ const HEIGHT: u32 = 720;
 
 const MAX_ZOOM_LEVEL: u32 = 20;
 
-widget_ids!(pub struct Ids { debug_menu[], fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], weather_button, airplane_button, latitude_lines[], latitude_text[], longitude_lines[], longitude_text[],filer_button[], planes[] });
+widget_ids!(pub struct Ids { debug_menu[], fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], weather_button, airplane_button, latitude_lines[], latitude_text[], longitude_lines[], longitude_text[], filer_button[], airports[], planes[] });
 
 pub use util::PERF_DATA;
 
@@ -61,7 +63,7 @@ pub fn run_app() {
 
     let noto_sans_ttf = include_bytes!("../assets/fonts/NotoSans/NotoSans-Regular.ttf");
     let noto_sans = Font::from_bytes(noto_sans_ttf).expect("Failed to decode font");
-    let noto_sans = ui.fonts.insert(noto_sans);
+    let _noto_sans = ui.fonts.insert(noto_sans);
 
     let b612_ttf = include_bytes!("../assets/fonts/B612Mono/B612Mono-Regular.ttf");
     let b612 = Font::from_bytes(b612_ttf).expect("Failed to decode font");
@@ -76,6 +78,9 @@ pub fn run_app() {
 
     let mut tile_cache = TileCache::new(&runtime);
     let mut plane_requester = PlaneRequester::new(&runtime);
+
+    let airports_bin = include_bytes!("../assets/data/airports.bin");
+    let airports = airports_from_bytes(airports_bin).expect("Failed to load airports");
 
     let mut should_update_ui = true;
     let mut viewer = map::TileView::new(0.0, 0.0, 2.0, 1080.0 / 2.0);
@@ -152,10 +157,14 @@ pub fn run_app() {
                         &mut ids,
                         ui,
                     );
+                  
+                    //========== Draw Airports ==========
+
+                    airports::airport_renderer::draw(&airports, &viewer, &display, &mut ids, ui);
 
                     //=========Draw Plane============
                     plane_renderer::draw(&mut plane_requester, &viewer, &mut ids, airplane_ids, ui);
-
+                  
                     //========== Draw Debug Text ==========
                     let data = {
                         let mut guard = PERF_DATA.lock();
