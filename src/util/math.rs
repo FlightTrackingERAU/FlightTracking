@@ -3,6 +3,7 @@
 //! Currently thin contains functions for interpolation, normalization, and mapping one range of
 //! values to another
 
+/// Performs linear interpolation for `f` in 0..1 between `a` and `b`
 pub fn lerp<T, F>(a: T, b: T, f: F) -> T
 where
     T: Copy,
@@ -14,6 +15,7 @@ where
     a + ((b - a) * f)
 }
 
+/// Normalizes `value` in range a..b to 0..1
 pub fn normalize<T, F>(a: T, b: T, value: T) -> F
 where
     T: Copy,
@@ -23,6 +25,7 @@ where
     (value - a) / (b - a)
 }
 
+/// Maps a value linearly in one range to another
 pub fn map<S, D, F>(left_min: S, left_max: S, value: S, right_min: D, right_max: D) -> D
 where
     S: Copy,
@@ -39,6 +42,7 @@ where
     lerp(right_min, right_max, f)
 }
 
+/// Rounds a number up to the nearest multiple of `multiple`
 pub fn round_up<T>(to_round: T, multiple: T) -> T
 where
     T: num::Signed,
@@ -64,6 +68,7 @@ where
     }
 }
 
+/// Rounds a number up to the nearest power of 2
 pub fn round_up_pow2<T>(to_round: T) -> T
 where
     T: num::traits::float::Float,

@@ -1,10 +1,12 @@
 use conrod_core::{
-    widget::{Image, Line, Text},
+    widget::{id::List, Image, Line, Text},
     Colorable, Positionable, Sizeable, UiCell, Widget,
 };
 
-use crate::tile_cache::{TileCache, TileId};
+use crate::tile::{self, *};
 
+/// Projects a x world location combined with a viewport to determine the x pixel location in the
+/// conrad coordinate system
 pub fn world_x_to_pixel_x(
     world_x: f64,
     viewport: &crate::map::WorldViewport,
@@ -20,6 +22,8 @@ pub fn world_x_to_pixel_x(
     )
 }
 
+/// Projects a y world location combined with a viewport to determine the y pixel location in the
+/// conrad coordinate system
 pub fn world_y_to_pixel_y(
     world_y: f64,
     viewport: &crate::map::WorldViewport,
@@ -53,7 +57,6 @@ fn line_distance_for_viewport_degrees(world_range: f64, dimension_size: f64) -> 
             return distance;
         }
     }
-    //TODO: Make smaller increments
     let power = (mapped_range / DISTANCE_SCALE).log10();
     let part = power.rem_euclid(1.0);
     //We know the scale and where the number falls within the exponential range
@@ -75,72 +78,101 @@ fn world_width_from_longitude(lng: f64) -> f64 {
     lng / 360.0
 }
 
-pub fn draw(
-    tile_cache: &mut TileCache,
-    view: &crate::map::TileView,
-    display: &glium::Display,
-    image_map: &mut conrod_core::image::Map<glium::Texture2d>,
-    ids: &mut crate::Ids,
-    ui: &mut UiCell,
-) {
+/// The state needed to render the map.
+///
+/// Implemented as a struct to reduce the number of parameters passed to the map_render function
+pub struct MapRendererState<'a, 'b, 'c, 'd, 'e> {
+    pub tile_cache: &'a mut tile::PipelineMap,
+    pub view: &'b crate::map::TileView,
+    pub display: &'c glium::Display,
+    pub image_map: &'d mut conrod_core::image::Map<glium::Texture2d>,
+    pub ids: &'e mut crate::Ids,
+    pub weather_enabled: bool,
+}
+
+/// Draws the satellite tiles, weather tiles (if enabled), latitude lines, and longitude lines,
+/// using the `view` inside `state`
+pub fn draw(state: MapRendererState, ui: &mut UiCell<'_>) {
+    let _scope = crate::profile_scope("map_renderer::draw");
     //Or value is okay here because `tile_size()` only returns `None` if no tiles are cached, which
     //only happens the first few frames, therefore this value doesn't need to be accurate
-    let tile_size = tile_cache.tile_size().unwrap_or(256) / 2;
+    let tile_cache = state.tile_cache;
+    let view = state.view;
+    let display = state.display;
+    let image_map = state.image_map;
+    let ids = state.ids;
 
-    let it = view.tile_iter(tile_size, ui.win_w, ui.win_h);
-    let size = it.tile_size;
-    let offset = it.tile_offset;
-    let zoom_level = it.tile_zoom;
+    let viewport = state.view.get_world_viewport(ui.win_w, ui.win_h);
 
-    let tiles_vertically = it.tiles_vertically;
+    let mut cache_it = tile_cache.values_mut();
+    let satellite = cache_it.next().unwrap();
+    let weather = cache_it.next().unwrap();
 
-    let tiles: Vec<_> = it.collect();
     {
-        let mut guard = crate::PERF_DATA.lock();
-        guard.tiles_rendered = tiles.len();
-        guard.zoom = zoom_level;
+        let _p = crate::profile_scope("Satellite Tile Cache Update");
+        satellite.update(&viewport, display, image_map);
     }
 
-    ids.tiles.resize(tiles.len(), &mut ui.widget_id_generator());
-    ids.square_text
-        .resize(tiles.len(), &mut ui.widget_id_generator());
+    {
+        let _p = crate::profile_scope("Weather Tile Cache Update");
 
-    // The conrod coordinate system places 0, 0 in the center of the window. Up is the positive y
-    // axis, and right is the positive x axis.
-    // The units are in terms of screen pixels, so on a window with a size of 1000x500 the point
-    // (500, 250) would be the top right corner
-    for (i, tile) in tiles.into_iter().enumerate() {
-        let tile_x = i / tiles_vertically as usize;
-        let tile_y = i % tiles_vertically as usize;
-
-        let half_width = ui.win_w / 2.0;
-        let half_height = ui.win_h / 2.0;
-        let x = offset.x + tile_x as f64 * size.x - half_width + size.x / 2.0;
-        let y = offset.y - (tile_y as f64 * size.y) + half_height + size.y / 2.0;
-
-        let tile_id = TileId::new(tile.0, tile.1, zoom_level);
-
-        tile_cache.process(display, image_map);
-
-        if let Some(tile) = tile_cache.get_tile(tile_id) {
-            Image::new(tile)
-                .x_y(x, y)
-                .wh(size.to_array())
-                .set(ids.tiles[i], ui);
-        } else if cfg!(debug_assertions) {
-            //Render debug tile information when run in debug mode
-
-            let text = format!("[{}, {}] @ {}", tile.0, tile.1, zoom_level);
-            Text::new(text.as_str())
-                .xy_relative([0.0, 0.0])
-                .color(conrod_core::color::WHITE)
-                .font_size(12)
-                .set(ids.square_text[i], ui);
+        if state.weather_enabled {
+            weather.update(&viewport, display, image_map);
         }
     }
 
-    let viewport = view.get_world_viewport(ui.win_w, ui.win_h);
+    let mut render_tile_set =
+        |pipeline: &mut TilePipeline, view: &crate::map::TileView, ids: &mut List| {
+            let tile_size = pipeline.tile_size().unwrap();
 
+            let it = view.tile_iter(tile_size, ui.win_w, ui.win_h);
+            let size = it.tile_size;
+            let offset = it.tile_offset;
+            let zoom_level = it.tile_zoom;
+
+            let tiles_vertically = it.tiles_vertically;
+
+            let tiles: Vec<_> = it.collect();
+            {
+                let mut guard = crate::MAP_PERF_DATA.lock();
+                guard.tiles_rendered = tiles.len();
+                guard.zoom = zoom_level;
+            }
+
+            ids.resize(tiles.len(), &mut ui.widget_id_generator());
+
+            // The conrod coordinate system places 0, 0 in the center of the window. Up is the positive y
+            // axis, and right is the positive x axis.
+            // The units are in terms of screen pixels, so on a window with a size of 1000x500 the point
+            // (500, 250) would be the top right corner
+            let scope_render_tiles = crate::profile_scope("Render Tiles");
+            for (i, tile) in tiles.iter().enumerate() {
+                let tile_x = i / tiles_vertically as usize;
+                let tile_y = i % tiles_vertically as usize;
+
+                let half_width = ui.win_w / 2.0;
+                let half_height = ui.win_h / 2.0;
+                let x = offset.x + tile_x as f64 * size.x - half_width + size.x / 2.0;
+                let y = offset.y - (tile_y as f64 * size.y) + half_height + size.y / 2.0;
+
+                let tile_id = TileId::new(tile.0, tile.1, zoom_level);
+
+                if let Some(tile) = pipeline.get_tile(tile_id) {
+                    Image::new(tile)
+                        .x_y(x, y)
+                        .wh(size.to_array())
+                        .set(ids[i], ui);
+                }
+            }
+            scope_render_tiles.end();
+        };
+
+    render_tile_set(satellite, view, &mut ids.satellite_tiles);
+    if state.weather_enabled {
+        render_tile_set(weather, view, &mut ids.weather_tiles);
+    }
+
+    let scope_render_latitude = crate::profile_scope("Render Latitude");
     //Lines of latitude
     let lat_line_distance =
         line_distance_for_viewport_degrees(viewport.bottom_right.y - viewport.top_left.y, ui.win_h);
@@ -179,7 +211,7 @@ pub fn draw(
             .thickness(1.5)
             .set(ids.latitude_lines[i], ui);
 
-        let text = if lat > 0.0 {
+        let text = if lat >= 0.0 {
             format!("{:.1$}°N", lat, precision)
         } else {
             format!("{:.1$}°S", -lat, precision)
@@ -191,7 +223,9 @@ pub fn draw(
             .font_size(12)
             .set(ids.latitude_text[i], ui);
     }
+    scope_render_latitude.end();
 
+    let scope_render_longitude = crate::profile_scope("Render Longitude");
     //Lines of longitude
     let lng_line_distance =
         line_distance_for_viewport_degrees(viewport.bottom_right.x - viewport.top_left.x, ui.win_w);
@@ -231,7 +265,7 @@ pub fn draw(
             .thickness(1.5)
             .set(ids.longitude_lines[i], ui);
 
-        let text = if lng > 0.0 {
+        let text = if lng >= 0.0 {
             format!("{:.1$}°E", lng, precision)
         } else {
             format!("{:.1$}°W", -lng, precision)
@@ -243,4 +277,6 @@ pub fn draw(
             .font_size(12)
             .set(ids.longitude_text[i], ui);
     }
+
+    scope_render_longitude.end();
 }

@@ -1,71 +1,53 @@
+use std::{collections::HashMap, time::Duration};
+
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
 use simple_moving_average::{SumTreeSMA, SMA};
 
-pub struct ApiTimeData {
-    pub api_secs: SumTreeSMA<f32, f32, 8>,
-    pub decode_secs: SumTreeSMA<f32, f32, 16>,
-    pub upload_secs: SumTreeSMA<f32, f32, 16>,
-}
-
+/// The performance data recorded across the entire application relating to tiles
 pub struct PerformanceData {
     pub tiles_rendered: usize,
     pub tiles_on_gpu: usize,
     pub tiles_in_memory: usize,
     pub zoom: u32,
-    pub satellite: ApiTimeData,
-    pub weather: ApiTimeData,
+    pub backend_request_secs: HashMap<&'static str, SumTreeSMA<Duration, u32, 16>>,
+    pub tile_decode_time: SumTreeSMA<Duration, u32, 16>,
+    pub tile_upload_time: SumTreeSMA<Duration, u32, 16>,
 }
 
-//Same as other structs but are Clone
-#[derive(Clone)]
-pub struct ApiTimeDataSnapshot {
-    pub api_secs: f32,
-    pub decode_secs: f32,
-    pub upload_secs: f32,
-}
-
+/// Largely the same as [`PerformanceData`], but is clone for getting a snapshot out of the mutex
+/// in order to release it as quickly as possible
 #[derive(Clone)]
 pub struct PerformanceDataSnapshot {
     pub tiles_rendered: usize,
     pub tiles_on_gpu: usize,
     pub tiles_in_memory: usize,
     pub zoom: u32,
-    pub satellite: ApiTimeDataSnapshot,
-    pub weather: ApiTimeDataSnapshot,
+    pub backend_request_secs: Vec<(&'static str, Duration)>,
+    pub tile_decode_time: Duration,
+    pub tile_upload_time: Duration,
 }
 
 lazy_static! {
-    pub static ref PERF_DATA: Mutex<PerformanceData> = Mutex::new(Default::default());
+    /// The global performance data for tile data
+    pub static ref MAP_PERF_DATA: Mutex<PerformanceData> = Mutex::new(Default::default());
 }
 
 impl PerformanceData {
+    /// Takes a snapshot of the current data, collecting the counters into one snapshot
     pub fn snapshot(&mut self) -> PerformanceDataSnapshot {
         PerformanceDataSnapshot {
             tiles_rendered: self.tiles_rendered,
             tiles_on_gpu: self.tiles_on_gpu,
             tiles_in_memory: self.tiles_in_memory,
             zoom: self.zoom,
-            satellite: ApiTimeDataSnapshot {
-                api_secs: self.satellite.api_secs.get_average(),
-                decode_secs: self.satellite.decode_secs.get_average(),
-                upload_secs: self.satellite.upload_secs.get_average(),
-            },
-            weather: ApiTimeDataSnapshot {
-                api_secs: self.weather.api_secs.get_average(),
-                decode_secs: self.weather.decode_secs.get_average(),
-                upload_secs: self.weather.upload_secs.get_average(),
-            },
-        }
-    }
-}
-
-impl Default for ApiTimeData {
-    fn default() -> Self {
-        Self {
-            api_secs: SumTreeSMA::new(),
-            decode_secs: SumTreeSMA::new(),
-            upload_secs: SumTreeSMA::new(),
+            tile_decode_time: self.tile_decode_time.get_average(),
+            tile_upload_time: self.tile_upload_time.get_average(),
+            backend_request_secs: self
+                .backend_request_secs
+                .iter()
+                .map(|(k, v)| (*k, v.get_average()))
+                .collect(),
         }
     }
 }
@@ -77,8 +59,9 @@ impl Default for PerformanceData {
             tiles_on_gpu: Default::default(),
             tiles_in_memory: Default::default(),
             zoom: Default::default(),
-            satellite: Default::default(),
-            weather: Default::default(),
+            backend_request_secs: Default::default(),
+            tile_decode_time: SumTreeSMA::from_zero(Duration::ZERO),
+            tile_upload_time: SumTreeSMA::from_zero(Duration::ZERO),
         }
     }
 }

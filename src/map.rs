@@ -8,6 +8,9 @@ use std::ops::Range;
 /// 0 = Whole world is visible
 pub type TileZoomLevel = u32;
 
+/// (x, y) tile coordinates returned by [`TileViewIterator`] for a given zoom level.
+///
+/// Each will never exceed `2^zoom_level`
 pub type TileCoordinate = (u32, u32);
 
 /// Represents the viewport of the camera in unbounded world coordinates.
