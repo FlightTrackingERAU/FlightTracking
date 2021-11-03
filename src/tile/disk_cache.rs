@@ -55,7 +55,13 @@ impl Backend for DiskCache {
                 if let Ok(last_modified) = metadata.modified() {
                     if let Ok(age) = SystemTime::now().duration_since(last_modified) {
                         if age > self.0.invalidate_time {
-                            println!("{:?} - {:?} too old", tile, age);
+                            if let Err(err) = tokio::fs::remove_file(&path).await {
+                                println!(
+                                    "Error: {:?} while deleting old tile {:?} at {}. {:?} old",
+                                    err, tile, &path, age
+                                );
+                            }
+                            return Ok(None);
                         }
                     }
                 }
