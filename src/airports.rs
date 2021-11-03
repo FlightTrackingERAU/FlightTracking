@@ -40,7 +40,7 @@ pub mod airport_renderer {
     /// Draws all of the airports onto the map. Should be run before plane rendering, but after the
     /// map tiles are rendered
     pub fn draw(
-        airports: &Vec<Airport>,
+        airports: &[Airport],
         view: &crate::map::TileView,
         _display: &glium::Display,
         ids: &mut crate::Ids,
