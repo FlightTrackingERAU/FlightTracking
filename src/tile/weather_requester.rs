@@ -1,3 +1,10 @@
+//atomic enum generates a compare_and_swap function that calls to AtomicUsize's compare_and_swap
+//which is deprecated.
+//We dont use compare_and_swap function so its fine
+//Because it generates this from within a macro, we unfortunately need to disable deprecation
+//warnings for the whole file :[
+#![allow(deprecated)]
+
 use async_trait::async_trait;
 use rain_viewer::RequestArguments;
 use simple_moving_average::SMA;
@@ -7,7 +14,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use super::{Backend, ReadinessStatus, TileError, TileId};
+use super::{disk_cache::DiskCacheData, Backend, ReadinessStatus, TileError, TileId};
 use crate::tile::backend::load_tile;
 
 #[atomic_enum::atomic_enum]
@@ -33,14 +40,16 @@ pub struct WeatherRequester {
     available: tokio::sync::RwLock<Option<WeatherData>>,
     state: AtomicWeatherDataState,
     tile_size: u32,
+    cache_data: DiskCacheData,
 }
 
 impl WeatherRequester {
-    pub fn new() -> Self {
+    pub fn new(cache_data: DiskCacheData) -> Self {
         Self {
             available: tokio::sync::RwLock::new(None),
             state: AtomicWeatherDataState::new(WeatherDataState::Uninitialized),
             tile_size: 512,
+            cache_data,
         }
     }
 }
@@ -148,6 +157,8 @@ impl Backend for WeatherRequester {
                             args.set_color(rain_viewer::ColorKind::TheWeatherChannel);
                             match rain_viewer::get_tile(&available.data, last_frame, args).await {
                                 Ok(bytes) => {
+                                    let _ =
+                                        self.cache_data.cache_tile(tile, bytes.as_slice()).await;
                                     return Ok(Some(bytes));
                                 }
                                 Err(err) => {

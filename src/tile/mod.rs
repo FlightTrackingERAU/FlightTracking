@@ -38,15 +38,24 @@ pub enum TileKind {
 pub type PipelineMap = EnumMap<TileKind, TilePipeline>;
 
 pub fn pipelines(runtime: &Runtime) -> PipelineMap {
-    let weather_expiry = Duration::from_secs(60 * 5);
+    let satellite_cache = DiskCacheData {
+        folder_name: ".cache/satellite",
+        image_extension: "jpg",
+        invalidate_time: Duration::from_secs(60 * 60 * 24 * 30), //One month long cache
+    };
+    let weather_cache = DiskCacheData {
+        folder_name: ".cache/weather",
+        image_extension: "png",
+        invalidate_time: Duration::from_secs(60 * 5), //Five minute cache
+    };
     enum_map! {
         TileKind::Satellite => TilePipeline::new(vec![
-            Box::new(DiskCache::new(".cache/satellite", "jpg", None)),
-            Box::new(SatelliteRequester::new())
+            Box::new(DiskCache::new(satellite_cache)),
+            Box::new(SatelliteRequester::new(satellite_cache))
         ], runtime),
         TileKind::Weather => TilePipeline::new(vec![
-            Box::new(DiskCache::new(".cache/weather", "png", Some(weather_expiry))),
-            Box::new(WeatherRequester::new())
+            Box::new(DiskCache::new(weather_cache)),
+            Box::new(WeatherRequester::new(weather_cache))
         ], runtime),
     }
 }

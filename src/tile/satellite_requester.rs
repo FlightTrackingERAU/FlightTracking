@@ -1,4 +1,4 @@
-use super::{Backend, ReadinessStatus, TileError, TileId};
+use super::{disk_cache::DiskCacheData, Backend, ReadinessStatus, TileError, TileId};
 
 use async_trait::async_trait;
 use maptiler_cloud::{Maptiler, TileRequest};
@@ -6,14 +6,16 @@ use rand::Rng;
 
 pub struct SatelliteRequester {
     maptiler: Maptiler,
+    cache_data: DiskCacheData,
 }
 
 impl SatelliteRequester {
-    pub fn new() -> Self {
+    pub fn new(cache_data: DiskCacheData) -> Self {
         let api_keys = ["GBnoGxmU64rzYqypBLp9", "VrgC04XoV1a84R5VkUnL"];
         Self {
             maptiler: Maptiler::new(api_keys[rand::thread_rng().gen_range(0..api_keys.len())])
                 .expect("Failed to create maptiler TLS backend!"),
+            cache_data,
         }
     }
 }
@@ -34,7 +36,9 @@ impl Backend for SatelliteRequester {
             Ok(req) => req,
             Err(_err) => return Ok(None),
         };
-        Ok(Some(self.maptiler.create_request(req).execute().await?))
+        let bytes = self.maptiler.create_request(req).execute().await?;
+        let _ = self.cache_data.cache_tile(tile, bytes.as_slice()).await;
+        Ok(Some(bytes))
     }
 
     async fn readiness(&self, _tile: TileId) -> ReadinessStatus {
