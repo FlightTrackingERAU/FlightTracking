@@ -153,6 +153,9 @@ pub fn run_app() {
                         ui,
                     );
 
+                    //=========Draw Plane============
+                    plane_renderer::draw(&mut plane_requester, &viewer, &mut ids, airplane_ids, ui);
+
                     //========== Draw Debug Text ==========
                     let data = {
                         let mut guard = PERF_DATA.lock();
@@ -197,16 +200,6 @@ pub fn run_app() {
                         let y = ui.win_h / 2.0 - 8.0 - i as f64 * 11.0;
                         gui_text.x_y(x, y).set(ids.debug_menu[i], ui);
                     }
-                    //Draw Plane
-                    plane_renderer::draw(
-                        &mut plane_requester,
-                        &viewer,
-                        &display,
-                        &mut image_map,
-                        &mut ids,
-                        ui,
-                    );
-
                     //========== Draw Buttons ==========
 
                     button_widget::draw_circle_with_image(

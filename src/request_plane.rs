@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex};
-use tokio::runtime::Runtime;
+use tokio::{runtime::Runtime, time::Instant};
 
 use opensky_api::errors::Error;
 
@@ -7,14 +7,12 @@ use opensky_api::errors::Error;
 pub struct Plane {
     pub longitude: f32,
     pub latitude: f32,
-    pub on_ground: bool,
 }
 impl Plane {
-    pub fn new(longitude: f32, latitude: f32, on_ground: bool) -> Self {
+    pub fn new(longitude: f32, latitude: f32) -> Self {
         Plane {
             longitude,
             latitude,
-            on_ground,
         }
     }
 }
@@ -40,6 +38,7 @@ impl PlaneRequester {
 
 async fn plane_data_loop(list_of_planes: Arc<Mutex<Arc<Vec<Plane>>>>) {
     loop {
+        let start = Instant::now();
         match request_plane_data().await {
             Ok(plane_data) => {
                 let mut guard = list_of_planes.lock().unwrap();
@@ -50,7 +49,21 @@ async fn plane_data_loop(list_of_planes: Arc<Mutex<Arc<Vec<Plane>>>>) {
             }
         };
 
-        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+        let end = Instant::now();
+
+        let time_interval = tokio::time::Duration::from_secs(5);
+        let seconds = end - start;
+
+        println!("Took: {:?}", seconds);
+        let sleep_time = if seconds <= tokio::time::Duration::from_secs(5) {
+            time_interval - seconds
+        } else {
+            tokio::time::Duration::from_secs(0)
+        };
+
+        println!("Sleep time: {:?}", sleep_time);
+
+        tokio::time::sleep(sleep_time).await;
     }
 }
 
@@ -65,19 +78,21 @@ async fn request_plane_data() -> Result<Vec<Plane>, Error> {
     for state in open_sky.states {
         let longitude = state.longitude;
         let latitude = state.latitude;
-        let on_ground = state.on_ground;
 
-        if let Some(longitude) = longitude {
-            let latitude = latitude.unwrap();
+        if !state.on_ground {
+            if let Some(longitude) = longitude {
+                let latitude = latitude.unwrap();
 
-            let plane = Plane {
-                longitude,
-                latitude,
-                on_ground,
-            };
-            plane_list.push(plane);
+                let plane = Plane {
+                    longitude,
+                    latitude,
+                };
+                plane_list.push(plane);
+            }
+        } else {
         }
     }
+
     Ok(plane_list)
 }
 
