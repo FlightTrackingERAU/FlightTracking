@@ -182,6 +182,8 @@ fn create_texture(display: &glium::Display, image: image::RgbaImage) -> glium::T
 }
 
 const ZOOM_BITS: u32 = 5;
+
+#[cfg(debug_assertions)]
 const MAX_ZOOM: u32 = 2u32.pow(ZOOM_BITS); //32
 
 //Bits for x and y
