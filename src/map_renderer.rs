@@ -5,7 +5,7 @@ use conrod_core::{
 
 use crate::tile_cache::{TileCache, TileId};
 
-fn world_x_to_pixel_x(
+pub fn world_x_to_pixel_x(
     world_x: f64,
     viewport: &crate::map::WorldViewport,
     window_width: f64,
@@ -20,7 +20,7 @@ fn world_x_to_pixel_x(
     )
 }
 
-fn world_y_to_pixel_y(
+pub fn world_y_to_pixel_y(
     world_y: f64,
     viewport: &crate::map::WorldViewport,
     window_height: f64,

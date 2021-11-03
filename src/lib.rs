@@ -6,6 +6,8 @@ mod airports;
 mod button_widget;
 mod map;
 mod map_renderer;
+mod plane_renderer;
+mod request_plane;
 mod support;
 mod tile_cache;
 mod tile_requester;
@@ -16,6 +18,8 @@ pub use airports::*;
 pub use button_widget::*;
 pub use map::*;
 pub use map_renderer::*;
+pub use plane_renderer::*;
+pub use request_plane::*;
 pub use tile_cache::*;
 pub use tile_requester::*;
 pub use ui_filter::*;
@@ -26,7 +30,8 @@ const HEIGHT: u32 = 720;
 
 const MAX_ZOOM_LEVEL: u32 = 20;
 
-widget_ids!(pub struct Ids { debug_menu[], fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], weather_button, airplane_button, latitude_lines[], latitude_text[], longitude_lines[], longitude_text[], filer_button[], airports[] });
+widget_ids!(pub struct Ids { debug_menu[], fps_logger, text, viewport, map_images[], squares[], tiles[], square_text[], weather_button, airplane_button, latitude_lines[], latitude_text[], longitude_lines[], longitude_text[], filer_button[], airports[], planes[] });
+
 pub use util::PERF_DATA;
 
 pub fn run_app() {
@@ -72,6 +77,7 @@ pub fn run_app() {
     let runtime = tokio::runtime::Runtime::new().expect("Unable to create Tokio runtime!");
 
     let mut tile_cache = TileCache::new(&runtime);
+    let mut plane_requester = PlaneRequester::new(&runtime);
 
     let airports_bin = include_bytes!("../assets/data/airports.bin");
     let airports = airports_from_bytes(airports_bin).expect("Failed to load airports");
@@ -156,6 +162,9 @@ pub fn run_app() {
 
                     airports::airport_renderer::draw(&airports, &viewer, &display, &mut ids, ui);
 
+                    //=========Draw Plane============
+                    plane_renderer::draw(&mut plane_requester, &viewer, &mut ids, airplane_ids, ui);
+
                     //========== Draw Debug Text ==========
                     let data = {
                         let mut guard = PERF_DATA.lock();
@@ -200,7 +209,6 @@ pub fn run_app() {
                         let y = ui.win_h / 2.0 - 8.0 - i as f64 * 11.0;
                         gui_text.x_y(x, y).set(ids.debug_menu[i], ui);
                     }
-
                     //========== Draw Buttons ==========
 
                     button_widget::draw_circle_with_image(
