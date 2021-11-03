@@ -12,6 +12,7 @@ use disk_cache::*;
 use satellite_requester::*;
 use weather_requester::*;
 
+use std::time::Duration;
 use enum_map::{enum_map, Enum, EnumMap};
 use tokio::runtime::Runtime;
 
@@ -37,8 +38,15 @@ pub enum TileKind {
 pub type PipelineMap = EnumMap<TileKind, TilePipeline>;
 
 pub fn pipelines(runtime: &Runtime) -> PipelineMap {
+    let weather_expiry = Duration::from_secs(60 * 5);
     enum_map! {
-        TileKind::Satellite => TilePipeline::new(vec![Box::new(DiskCache::new("cache/satellite", "jpg")), Box::new(SatelliteRequester::new())], runtime),
-        TileKind::Weather => TilePipeline::new(vec![Box::new(DiskCache::new("cache/weather", "png")), Box::new(WeatherRequester::new())], runtime),
+        TileKind::Satellite => TilePipeline::new(vec![
+            Box::new(DiskCache::new(".cache/satellite", "jpg", None)),
+            Box::new(SatelliteRequester::new())
+        ], runtime),
+        TileKind::Weather => TilePipeline::new(vec![
+            Box::new(DiskCache::new(".cache/weather", "png", Some(weather_expiry))),
+            Box::new(WeatherRequester::new())
+        ], runtime),
     }
 }

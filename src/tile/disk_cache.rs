@@ -1,6 +1,6 @@
 use std::{
     path::PathBuf,
-    sync::atomic::{AtomicU32, Ordering},
+    time::{Duration, SystemTime},
 };
 
 use super::{Backend, ReadinessStatus, TileError, TileId};
@@ -16,16 +16,32 @@ fn get_tile_path(folder_name: &str, extension: &str, tile: TileId) -> String {
 pub struct DiskCache {
     folder_name: String,
     image_extension: String,
+    invalidate_time: Duration,
 }
 
 impl DiskCache {
-    pub fn new(folder_name: &str, image_extension: &str) -> Self {
+    pub fn new(
+        folder_name: &str,
+        image_extension: &str,
+        invalidate_time: Option<Duration>,
+    ) -> Self {
         //Try to create dir. If it fails, we don't care
         let _ = std::fs::create_dir_all(format!("./{}", folder_name));
         Self {
             folder_name: folder_name.to_owned(),
             image_extension: image_extension.to_owned(),
+            invalidate_time: invalidate_time.unwrap_or(Duration::MAX),
         }
+    }
+
+    pub async fn cache_tile(&self, tile: TileId, bytes: &[u8]) -> Result<(), std::io::Error> {
+        let path = get_tile_path(
+            self.folder_name.as_str(),
+            self.image_extension.as_str(),
+            tile,
+        );
+
+        tokio::fs::write(path, bytes).await
     }
 }
 
@@ -38,7 +54,19 @@ impl Backend for DiskCache {
             tile,
         );
         match std::fs::metadata(&path) {
-            Ok(_) => Ok(Some(tokio::fs::read(path).await?)),
+            Ok(metadata) => {
+                if let Ok(last_modified) = metadata.modified() {
+                    if let Ok(age) = SystemTime::now().duration_since(last_modified) {
+                        if age > self.invalidate_time {
+                            println!("{:?} - {:?} too old", tile, age);
+                        } else {
+                            println!("{:?} ok", tile);
+                        }
+                    }
+                }
+
+                Ok(Some(tokio::fs::read(path).await?))
+            }
             Err(_) => Ok(None),
         }
     }

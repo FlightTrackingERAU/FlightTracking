@@ -63,6 +63,7 @@ impl Drop for ScopeSampler {
 
 impl Samples {
     fn end(&self, name: &'static str) {
+        std::sync::atomic::compiler_fence(std::sync::atomic::Ordering::SeqCst);
         let end = Instant::now();
         let mut guard = self.0.lock().unwrap();
         let sample = match guard.get_mut(name) {
@@ -78,6 +79,7 @@ impl Samples {
     }
 
     fn start(&self, name: &'static str) {
+        std::sync::atomic::compiler_fence(std::sync::atomic::Ordering::SeqCst);
         let start = Instant::now();
 
         let mut guard = self.0.lock().unwrap();

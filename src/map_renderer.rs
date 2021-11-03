@@ -74,18 +74,26 @@ fn world_width_from_longitude(lng: f64) -> f64 {
     lng / 360.0
 }
 
-pub fn draw(
-    tile_cache: &mut tile::PipelineMap,
-    view: &crate::map::TileView,
-    display: &glium::Display,
-    image_map: &mut conrod_core::image::Map<glium::Texture2d>,
-    ids: &mut crate::Ids,
-    ui: &mut UiCell,
-) {
+pub struct MapRendererState<'a, 'b, 'c, 'd, 'e> {
+    pub tile_cache: &'a mut tile::PipelineMap,
+    pub view: &'b crate::map::TileView,
+    pub display: &'c glium::Display,
+    pub image_map: &'d mut conrod_core::image::Map<glium::Texture2d>,
+    pub ids: &'e mut crate::Ids,
+    pub weather_enabled: bool,
+}
+
+pub fn draw(state: MapRendererState, ui: &mut UiCell<'_>) {
     let _scope = crate::profile_scope("map_renderer::draw");
     //Or value is okay here because `tile_size()` only returns `None` if no tiles are cached, which
     //only happens the first few frames, therefore this value doesn't need to be accurate
-    let viewport = view.get_world_viewport(ui.win_w, ui.win_h);
+    let tile_cache = state.tile_cache;
+    let view = state.view;
+    let display = state.display;
+    let image_map = state.image_map;
+    let ids = state.ids;
+
+    let viewport = state.view.get_world_viewport(ui.win_w, ui.win_h);
 
     let mut cache_it = tile_cache.values_mut();
     let satellite = cache_it.next().unwrap();
@@ -98,7 +106,10 @@ pub fn draw(
 
     {
         let _p = crate::profile_scope("Weather Tile Cache Update");
-        weather.update(&viewport, display, image_map);
+
+        if state.weather_enabled {
+            weather.update(&viewport, display, image_map);
+        }
     }
 
     let mut render_tile_set =
@@ -148,7 +159,9 @@ pub fn draw(
         };
 
     render_tile_set(satellite, view, &mut ids.satellite_tiles);
-    render_tile_set(weather, view, &mut ids.weather_tiles);
+    if state.weather_enabled {
+        render_tile_set(weather, view, &mut ids.weather_tiles);
+    }
 
     let scope_render_latitude = crate::profile_scope("Render Latitude");
     //Lines of latitude

@@ -1,7 +1,6 @@
 use super::*;
 use crate::{TileId, WorldViewport};
 
-use intmap::IntMap;
 use parking_lot::Mutex;
 
 use simple_moving_average::SMA;

@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use conrod_core::{
-    text::Font, widget, widget_ids, Colorable, Labelable, Positionable, Sizeable, Widget,
+    text::Font, widget, widget_ids, Colorable, Positionable, Sizeable, Widget,
 };
 //use conrod_core::{text::Font, widget, widget_ids, Colorable, Positionable, Sizeable, Widget};
 use glam::DVec2;
@@ -18,7 +18,6 @@ mod util;
 
 pub use airports::*;
 pub use button_widget::*;
-use itertools::Itertools;
 pub use map::*;
 pub use map_renderer::*;
 pub use tile::*;
@@ -27,8 +26,6 @@ pub use util::*;
 
 const WIDTH: u32 = 1280;
 const HEIGHT: u32 = 720;
-
-const MAX_ZOOM_LEVEL: u32 = 20;
 
 widget_ids!(pub struct Ids {
     debug_menu[],
@@ -40,6 +37,7 @@ widget_ids!(pub struct Ids {
     weather_tiles[],
     weather_button,
     airplane_button,
+    debug_button,
     latitude_lines[],
     latitude_text[],
     longitude_lines[],
@@ -77,6 +75,9 @@ pub fn run_app() {
     let weather_image_bytes = include_bytes!("../assets/images/weather-icon.png");
     let weather_id = return_image_essentials(&display, weather_image_bytes, &mut image_map);
 
+    let gear_icon_bytes = include_bytes!("../assets/images/gear-icon.png");
+    let gear_id = return_image_essentials(&display, gear_icon_bytes, &mut image_map);
+
     let noto_sans_ttf = include_bytes!("../assets/fonts/NotoSans/NotoSans-Regular.ttf");
     let noto_sans = Font::from_bytes(noto_sans_ttf).expect("Failed to decode font");
     let _noto_sans = ui.fonts.insert(noto_sans);
@@ -101,6 +102,9 @@ pub fn run_app() {
     let mut viewer = map::TileView::new(0.0, 0.0, 2.0, 1080.0 / 2.0);
     let mut last_cursor_pos: Option<DVec2> = None;
     let mut left_pressed = false;
+
+    let mut weather_enabled = false;
+    let mut debug_enabled = true;
 
     event_loop.run(move |event, _, control_flow| {
         use glium::glutin::event::{
@@ -159,102 +163,118 @@ pub fn run_app() {
                     // should_update_ui = false;
 
                     // Set the widgets.
-                    let ui = &mut ui.set_widgets();
+                    let mut ui = ui.set_widgets();
+                    let ui = &mut ui;
                     ids.filer_button.resize(4, &mut ui.widget_id_generator());
 
                     //========== Draw Map ==========
-
-                    map_renderer::draw(
-                        &mut pipelines,
-                        &viewer,
-                        &display,
-                        &mut image_map,
-                        &mut ids,
-                        ui,
-                    );
+                    {
+                        let map_state = map_renderer::MapRendererState {
+                            tile_cache: &mut pipelines,
+                            view: &viewer,
+                            display: &display,
+                            image_map: &mut image_map,
+                            ids: &mut ids,
+                            weather_enabled,
+                        };
+                        map_renderer::draw(map_state, ui);
+                    }
 
                     //========== Draw Airports ==========
 
                     airports::airport_renderer::draw(&airports, &viewer, &display, &mut ids, ui);
 
-                    //========== Load Debug Data ==========
+                    //========== Draw Debug Data ==========
 
                     let perf_data = crate::take_profile_data();
 
-                    let scope_debug_view = crate::profile_scope("Render Debug Information");
-                    let mut perf_data: Vec<_> = perf_data.into_iter().collect();
-                    perf_data.sort_unstable_by(|a, b| a.0.cmp(b.0));
+                    if debug_enabled {
+                        let _scope_debug_view = crate::profile_scope("Render Debug Information");
+                        let mut perf_data: Vec<_> = perf_data.into_iter().collect();
+                        perf_data.sort_unstable_by(|a, b| a.0.cmp(b.0));
 
-                    //========== Draw Debug Text ==========
-                    let map_data = {
-                        let mut guard = MAP_PERF_DATA.lock();
-                        guard.snapshot()
-                    };
-
-                    let widget_x_position = (ui.win_w / 2.0) * 0.95;
-                    let widget_y_position = (ui.win_h / 2.0) * 0.90;
-
-                    let mut debug_text = vec![
-                        format!(
-                            "FT: {:.2}, FPS: {}",
-                            frame_time_ms,
-                            (1000.0 / frame_time_ms) as u32
-                        ),
-                        format!(
-                            "Zoom: {}, Tiles: {}",
-                            map_data.zoom, map_data.tiles_rendered
-                        ),
-                        format!(
-                            "Decode: {:.2}ms, Upload: {:.2}ms",
-                            map_data.tile_decode_time.as_secs_f64() * 1000.0,
-                            map_data.tile_upload_time.as_secs_f64() * 1000.0
-                        ),
-                    ];
-                    for (backend_name, time) in map_data.backend_request_secs {
-                        debug_text.push(format!(
-                            " {}: {:.2}ms",
-                            backend_name,
-                            time.as_secs_f64() * 1000.0
-                        ));
-                    }
-                    for (name, data) in perf_data {
-                        let samples = data.get_samples();
-                        let text = if samples.len() == 1 {
-                            format!("{}: {:?}", name, samples[0])
-                        } else {
-                            let avg: Duration =
-                                samples.iter().sum::<Duration>() / samples.len() as u32;
-                            format!("{}: {} times, {:?} avg", name, samples.len(), avg)
+                        //========== Draw Debug Text ==========
+                        let map_data = {
+                            let mut guard = MAP_PERF_DATA.lock();
+                            guard.snapshot()
                         };
-                        debug_text.push(text);
-                    }
-                    ids.debug_menu
-                        .resize(debug_text.len(), &mut ui.widget_id_generator());
 
-                    for (i, text) in debug_text.iter().enumerate() {
-                        let gui_text = widget::Text::new(text.as_str())
-                            .color(conrod_core::color::WHITE)
-                            .left_justify()
-                            .font_size(8)
-                            .font_id(b612);
+                        let mut debug_text = vec![
+                            format!(
+                                "FT: {:.2}, FPS: {}",
+                                frame_time_ms,
+                                (1000.0 / frame_time_ms) as u32
+                            ),
+                            format!(
+                                "Zoom: {}, Tiles: {}",
+                                map_data.zoom, map_data.tiles_rendered
+                            ),
+                            format!(
+                                "Decode: {:.2}ms, Upload: {:.2}ms",
+                                map_data.tile_decode_time.as_secs_f64() * 1000.0,
+                                map_data.tile_upload_time.as_secs_f64() * 1000.0
+                            ),
+                        ];
+                        for (backend_name, time) in map_data.backend_request_secs {
+                            debug_text.push(format!(
+                                " {}: {:.2}ms",
+                                backend_name,
+                                time.as_secs_f64() * 1000.0
+                            ));
+                        }
+                        for (name, data) in perf_data {
+                            let samples = data.get_samples();
+                            let text = if samples.len() == 1 {
+                                format!("{}: {:?}", name, samples[0])
+                            } else {
+                                let avg: Duration =
+                                    samples.iter().sum::<Duration>() / samples.len() as u32;
+                                format!("{}: {} times, {:?} avg", name, samples.len(), avg)
+                            };
+                            debug_text.push(text);
+                        }
+                        ids.debug_menu
+                            .resize(debug_text.len(), &mut ui.widget_id_generator());
 
-                        let width = gui_text.get_w(ui).unwrap();
-                        let x = -ui.win_w / 2.0 + width / 2.0 + 4.0;
-                        let y = ui.win_h / 2.0 - 8.0 - i as f64 * 11.0;
-                        gui_text.x_y(x, y).set(ids.debug_menu[i], ui);
+                        for (i, text) in debug_text.iter().enumerate() {
+                            let gui_text = widget::Text::new(text.as_str())
+                                .color(conrod_core::color::WHITE)
+                                .left_justify()
+                                .font_size(8)
+                                .font_id(b612);
+
+                            let width = gui_text.get_w(ui).unwrap();
+                            let x = -ui.win_w / 2.0 + width / 2.0 + 4.0;
+                            let y = ui.win_h / 2.0 - 8.0 - i as f64 * 11.0;
+                            gui_text.x_y(x, y).set(ids.debug_menu[i], ui);
+                        }
                     }
-                    scope_debug_view.end();
 
                     //========== Draw Buttons ==========
                     let scope_render_buttons = crate::profile_scope("Render Buttons");
 
-                    button_widget::draw_circle_with_image(
+                    let widget_x_position = (ui.win_w / 2.0) * 0.95 - 25.0;
+                    let widget_y_position = (ui.win_h / 2.0) * 0.90;
+
+                    if button_widget::draw_circle_with_image(
                         ids.weather_button,
                         ui,
                         weather_id,
                         widget_x_position,
                         widget_y_position - 70.0,
-                    );
+                    ) {
+                        weather_enabled = !weather_enabled;
+                    }
+
+                    if button_widget::draw_circle_with_image(
+                        ids.debug_button,
+                        ui,
+                        gear_id,
+                        widget_x_position,
+                        widget_y_position - 140.0,
+                    ) {
+                        debug_enabled = !debug_enabled;
+                    }
 
                     button_widget::draw_circle_with_image(
                         ids.airplane_button,

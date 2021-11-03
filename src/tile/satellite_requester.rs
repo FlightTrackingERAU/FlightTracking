@@ -37,7 +37,7 @@ impl Backend for SatelliteRequester {
         Ok(Some(self.maptiler.create_request(req).execute().await?))
     }
 
-    async fn readiness(&self, tile: TileId) -> ReadinessStatus {
+    async fn readiness(&self, _tile: TileId) -> ReadinessStatus {
         ReadinessStatus::Unknown
     }
 
