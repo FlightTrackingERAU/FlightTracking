@@ -1,5 +1,6 @@
 use serde::Deserialize;
 
+/// Represents an Airport that will be deserialized
 #[derive(Debug, Deserialize)]
 pub struct Airport {
     pub id: u32,
@@ -22,7 +23,7 @@ pub struct Airport {
     pub local_code: String,
 }
 
-/// Deserializes a Vec<Airport> from a &[u8]
+/// Deserializes a Vec<Airport> from a &[u8] using serde Postcard
 pub fn airports_from_bytes(bytes: &[u8]) -> Result<Vec<Airport>, Box<bincode::ErrorKind>> {
     // Deserialize all of the airports
     let airports = bincode::deserialize(bytes)?;
@@ -30,11 +31,14 @@ pub fn airports_from_bytes(bytes: &[u8]) -> Result<Vec<Airport>, Box<bincode::Er
     Ok(airports)
 }
 
+/// Useful functions for rendering airports on the map
 pub mod airport_renderer {
     use conrod_core::UiCell;
 
     use crate::Airport;
 
+    /// Draws all of the airports onto the map. Should be run before plane rendering, but after the
+    /// map tiles are rendered
     pub fn draw(
         airports: &Vec<Airport>,
         view: &crate::map::TileView,
