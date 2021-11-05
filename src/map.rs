@@ -49,9 +49,8 @@ pub struct TileView {
 
 impl TileView {
     pub fn new(latitude: f64, longitude: f64, zoom: f64, window_width: f64) -> Self {
-        let x = crate::util::map(-180.0, 180.0, longitude, 0.0, 1.0);
-        //TODO: Convert latitude properly, accounting for mercator stretching near the poles
-        let y = crate::util::map(90.0, -90.0, latitude, 0.0, 1.0);
+        let x = crate::util::x_from_longitude(longitude);
+        let y = crate::util::y_from_latitude(latitude);
         Self {
             center: DVec2::new(x, y),
             pixel_size: pixel_size_from_zoom(zoom, window_width),

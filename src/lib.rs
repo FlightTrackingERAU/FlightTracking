@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use conrod_core::{text::Font, widget, widget_ids, Colorable, Positionable, Sizeable, Widget};
 //use conrod_core::{text::Font, widget, widget_ids, Colorable, Positionable, Sizeable, Widget};
@@ -104,12 +104,14 @@ pub fn run_app() {
     let airports = airports_from_bytes(airports_bin).expect("Failed to load airports");
 
     let mut should_update_ui = true;
-    let mut viewer = map::TileView::new(0.0, 0.0, 2.0, 1080.0 / 2.0);
+    let mut viewer = map::TileView::new(29.18796, -81.04923, 8.0, 1080.0 / 2.0);
     let mut last_cursor_pos: Option<DVec2> = None;
     let mut left_pressed = false;
 
     let mut weather_enabled = false;
     let mut debug_enabled = true;
+    let mut last_fps_print = Instant::now();
+    let mut frame_counter = 0;
 
     event_loop.run(move |event, _, control_flow| {
         use glium::glutin::event::{
@@ -324,6 +326,19 @@ pub fn run_app() {
                     );
                     scope_render_buttons.end();
 
+                    frame_counter += 1;
+                    let now = Instant::now();
+                    if now - last_fps_print >= Duration::from_secs(1) {
+                        println!("FPS: {}", frame_counter);
+                        last_fps_print = now;
+                        frame_counter = 0;
+                    }
+
+                    //Time calculations
+                    let now = std::time::Instant::now();
+                    frame_time_ms = (now - last_time).as_nanos() as f64 / 1_000_000.0;
+                    last_time = now;
+
                     display.gl_window().window().request_redraw();
                 }
             }
@@ -336,11 +351,6 @@ pub fn run_app() {
                 target.clear_color(0.21, 0.32, 0.4, 1.0);
                 renderer.draw(&display, &mut target, &image_map).unwrap();
                 target.finish().unwrap();
-
-                //Time calculations
-                let now = std::time::Instant::now();
-                frame_time_ms = (now - last_time).as_nanos() as f64 / 1_000_000.0;
-                last_time = now;
             }
             _ => {}
         }
