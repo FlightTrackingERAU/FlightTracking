@@ -289,7 +289,7 @@ mod tests {
             expected.retain(|e| e != rendered);
         }
 
-        if expected.len() != 0 {
+        if !expected.is_empty() {
             println!("Rendered tiles are: {:?}", real);
             panic!("Tiles {:?} not rendered!", expected);
         }
@@ -375,24 +375,6 @@ mod tests {
             screen_height,
             x_start: 1,
             x_len: 2,
-            y_start: 1,
-            y_len: 2,
-        });
-    }
-
-    #[test]
-    fn tile_it_3() {
-        let screen_width = 750.0;
-        let screen_height = 500.0;
-
-        let view = TileView::new(83.0, -178.0, 4.0, screen_width);
-        are_tiles_visible(IsSameTiles {
-            view,
-            tile_size: 256,
-            screen_width,
-            screen_height,
-            x_start: 62,
-            x_len: 3,
             y_start: 1,
             y_len: 2,
         });
