@@ -28,7 +28,7 @@ pub struct TilePipeline {
     //cache: Mutex<IntMap<CachedTile>>,
     cache: Mutex<HashMap<TileId, CachedTile>>,
     upload_rx: Receiver<MemoryTile>,
-    request_tx: UnboundedSender<TileId>,
+    request_tx: Arc<UnboundedSender<TileId>>,
     tile_size: AtomicU32,
 }
 
@@ -36,6 +36,11 @@ pub struct TilePipeline {
 enum CachedTile {
     Pending,
     Cached(conrod_core::image::Id),
+}
+
+pub struct TilePipelineGuard<'a> {
+    request_tx: Arc<UnboundedSender<TileId>>,
+    guard: parking_lot::MutexGuard<'a, HashMap<TileId, CachedTile>>,
 }
 
 impl TilePipeline {
@@ -54,20 +59,26 @@ impl TilePipeline {
             //cache: Mutex::new(IntMap::with_capacity(1024)),
             cache: Mutex::new(HashMap::with_capacity(1024)),
             upload_rx,
-            request_tx,
+            request_tx: Arc::new(request_tx),
             backends,
             tile_size: AtomicU32::new(0),
         }
     }
 
+    pub fn lock<'a>(&'a self) -> TilePipelineGuard<'a> {
+        TilePipelineGuard {
+            guard: self.cache.lock(),
+            request_tx: Arc::clone(&self.request_tx),
+        }
+    }
+
     /// Fetches the image id of `tile`, or starts loading the texture,
     /// returning None on this frame and subsequent frames until the asynchronous request finishes
-    pub fn get_tile(&mut self, tile: TileId) -> Option<conrod_core::image::Id> {
+    pub fn get_tile(guard: &mut TilePipelineGuard, tile: TileId) -> Option<conrod_core::image::Id> {
         //TODO: Have the caller pass the lock in so that we dont lock, unlock, then lock again
         {
-            let guard = self.cache.lock();
             //match guard.get(tile_coord_to_u64(tile)) {
-            match guard.get(&tile) {
+            match guard.guard.get(&tile) {
                 Some(&CachedTile::Cached(id)) => {
                     //println!("Got tile for {:?}", id);
                     return Some(id);
@@ -77,11 +88,12 @@ impl TilePipeline {
             };
         }
         assert!(
-            self.request_tx.send(tile).is_ok(),
+            guard.request_tx.send(tile).is_ok(),
             "Tile request channel closed! Cannot fetch more tiles"
         );
 
-        self.set_cached_tile(tile, CachedTile::Pending);
+        //guard.insert(tile_coord_to_u64(tile), cached_tile);
+        guard.guard.insert(tile, CachedTile::Pending);
         None
     }
 
@@ -112,10 +124,11 @@ impl TilePipeline {
         image_map: &mut conrod_core::image::Map<glium::Texture2d>,
     ) {
         //TODO: Pass viewport to preemption code
-        const MAX_PROCESS_TIME: Duration = Duration::from_millis(200);
+        const MAX_PROCESS_TIME: Duration = Duration::from_millis(50);
         let start = std::time::Instant::now();
         let mut tiles_processed = 0;
 
+        let mut guard = self.cache.lock();
         while let Ok(tile) = self.upload_rx.try_recv() {
             let time_spent = start.elapsed();
             if time_spent > MAX_PROCESS_TIME {
@@ -131,16 +144,12 @@ impl TilePipeline {
             let texture = create_texture(display, tile.image);
             let image_id = image_map.insert(texture);
 
-            self.set_cached_tile(tile_id, CachedTile::Cached(image_id));
+            //guard.insert(tile_coord_to_u64(tile), cached_tile);
+            guard.insert(tile_id, CachedTile::Cached(image_id));
+
             //println!("Set tile {:?}", tile_id);
             tiles_processed += 1;
         }
-    }
-
-    fn set_cached_tile(&mut self, tile: TileId, cached_tile: CachedTile) {
-        let mut guard = self.cache.lock();
-        //guard.insert(tile_coord_to_u64(tile), cached_tile);
-        guard.insert(tile, cached_tile);
     }
 }
 
