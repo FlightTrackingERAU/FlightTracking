@@ -296,7 +296,7 @@ pub fn run_app() {
                     ui_filter::draw(
                         ids.filer_button[0],
                         ui,
-                        String::from("American Airlanes"),
+                        String::from("American Airlines"),
                         widget_x_position - 130.0,
                         widget_y_position,
                     );
