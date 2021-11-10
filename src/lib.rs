@@ -72,15 +72,24 @@ pub fn run_app() {
 
     let mut image_map: conrod_core::image::Map<glium::Texture2d> = conrod_core::image::Map::new();
 
-    //Making airplane image ids
-    let airplane_image_bytes = include_bytes!("../assets/images/airplane-icon.png");
-    let airplane_ids = return_image_essentials(&display, airplane_image_bytes, &mut image_map);
+    //Making airplane image ids for the button
+    let airplane_button_bytes = include_bytes!("../assets/images/airplane-icon.png");
+    let airplane_button_ids =
+        return_image_essentials(&display, airplane_button_bytes, &mut image_map);
 
+    //Making airplane image ids for plane rendering
+    let plane_images_bytes = include_bytes!("../assets/images/airplane-image.png");
+    let plane_ids = return_image_essentials(&display, plane_images_bytes, &mut image_map);
+    //Making weather images ids
     let weather_image_bytes = include_bytes!("../assets/images/weather-icon.png");
     let weather_id = return_image_essentials(&display, weather_image_bytes, &mut image_map);
 
+    //Making debug image ids
     let gear_icon_bytes = include_bytes!("../assets/images/gear-icon.png");
     let gear_id = return_image_essentials(&display, gear_icon_bytes, &mut image_map);
+
+    let airport_icon_bytes = include_bytes!("../assets/images/airport-icon.png");
+    let airport_id = return_image_essentials(&display, airport_icon_bytes, &mut image_map);
 
     let noto_sans_ttf = include_bytes!("../assets/fonts/NotoSans/NotoSans-Regular.ttf");
     let noto_sans = Font::from_bytes(noto_sans_ttf).expect("Failed to decode font");
@@ -110,6 +119,8 @@ pub fn run_app() {
 
     let mut weather_enabled = false;
     let mut debug_enabled = true;
+
+    let mut show_airline = Airlines::All;
 
     event_loop.run(move |event, _, control_flow| {
         use glium::glutin::event::{
@@ -170,7 +181,7 @@ pub fn run_app() {
                     // Set the widgets.
                     let mut ui = ui.set_widgets();
                     let ui = &mut ui;
-                    ids.filer_button.resize(4, &mut ui.widget_id_generator());
+                    ids.filer_button.resize(6, &mut ui.widget_id_generator());
 
                     //========== Draw Map ==========
                     {
@@ -187,10 +198,19 @@ pub fn run_app() {
 
                     //========== Draw Airports ==========
 
-                    airports::airport_renderer::draw(&airports, &viewer, &display, &mut ids, ui);
+                    airports::airport_renderer::draw(
+                        &airports, &viewer, &display, &mut ids, airport_id, ui,
+                    );
 
                     //=========Draw Plane============
-                    plane_renderer::draw(&mut plane_requester, &viewer, &mut ids, airplane_ids, ui);
+                    plane_renderer::draw(
+                        &mut plane_requester,
+                        show_airline,
+                        &viewer,
+                        &mut ids,
+                        plane_ids,
+                        ui,
+                    );
 
                     //========== Draw Debug Data ==========
 
@@ -283,45 +303,72 @@ pub fn run_app() {
                         debug_enabled = !debug_enabled;
                     }
 
-                    button_widget::draw_circle_with_image(
+                    if button_widget::draw_circle_with_image(
                         ids.airplane_button,
                         ui,
-                        airplane_ids,
+                        airplane_button_ids,
                         widget_x_position,
                         widget_y_position,
-                    );
+                    ) {}
 
-                    ui_filter::draw(
+                    if ui_filter::draw(
                         ids.filer_button[0],
                         ui,
                         String::from("American Airlanes"),
                         widget_x_position - 130.0,
                         widget_y_position,
-                    );
+                    ) {
+                        show_airline = Airlines::AmericanAL;
+                    }
 
-                    ui_filter::draw(
+                    if ui_filter::draw(
                         ids.filer_button[1],
                         ui,
                         String::from("Spirit"),
                         widget_x_position - 130.0,
                         widget_y_position - 40.0,
-                    );
+                    ) {
+                        show_airline = Airlines::Spirit;
+                    }
 
-                    ui_filter::draw(
+                    if ui_filter::draw(
                         ids.filer_button[2],
                         ui,
                         String::from("Southwest"),
                         widget_x_position - 130.0,
                         widget_y_position - 80.0,
-                    );
+                    ) {
+                        show_airline = Airlines::SouthWest;
+                    }
 
-                    ui_filter::draw(
+                    if ui_filter::draw(
                         ids.filer_button[3],
                         ui,
                         String::from("United"),
                         widget_x_position - 130.0,
                         widget_y_position - 120.0,
-                    );
+                    ) {
+                        show_airline = Airlines::United
+                    }
+
+                    if ui_filter::draw(
+                        ids.filer_button[4],
+                        ui,
+                        String::from("Other Airlines"),
+                        widget_x_position - 130.0,
+                        widget_y_position - 160.0,
+                    ) {
+                        show_airline = Airlines::Other
+                    }
+                    if ui_filter::draw(
+                        ids.filer_button[5],
+                        ui,
+                        String::from("All"),
+                        widget_x_position - 130.0,
+                        widget_y_position - 200.0,
+                    ) {
+                        show_airline = Airlines::All
+                    }
                     scope_render_buttons.end();
 
                     display.gl_window().window().request_redraw();
