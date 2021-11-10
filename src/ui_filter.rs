@@ -259,8 +259,8 @@ pub fn draw(
     label: String,
     widget_x_position: f64,
     widget_y_position: f64,
-) {
-    if let Some(_clicks) = FilterButton::new()
+) -> bool {
+    FilterButton::new()
         .x(widget_x_position)
         .y(widget_y_position)
         .w_h(150.0, 30.0)
@@ -268,7 +268,5 @@ pub fn draw(
         .label_color(conrod_core::color::BLACK)
         .label(label.as_str())
         .set(widget_id, ui)
-    {
-        println!("{:?}", ui.xy_of(widget_id));
-    }
+        .is_some()
 }
