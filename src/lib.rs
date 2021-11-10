@@ -51,6 +51,7 @@ widget_ids!(pub struct Ids {
     planes[]
 });
 
+use std::fmt::Write;
 pub use util::MAP_PERF_DATA;
 
 /// The app's "main" function. Our real main inside `main.rs` calls this function
@@ -115,6 +116,7 @@ pub fn run_app() {
 
     let mut weather_enabled = true;
     let mut debug_enabled = true;
+
     let mut last_fps_print = Instant::now();
     let mut frame_counter = 0;
     let mut frame_times: Option<(Vec<f64>, Instant)> = None;
@@ -215,45 +217,17 @@ pub fn run_app() {
                             guard.snapshot()
                         };
 
-                        let mut debug_text = vec![
-                            format!(
-                                "FT: {:.2}, FPS: {}",
-                                frame_time_ms,
-                                (1000.0 / frame_time_ms) as u32
-                            ),
-                            format!(
-                                "Zoom: {}, Tiles: {}",
-                                map_data.zoom, map_data.tiles_rendered
-                            ),
-                            format!(
-                                "Decode: {:.2}ms, Upload: {:.2}ms",
-                                map_data.tile_decode_time.as_secs_f64() * 1000.0,
-                                map_data.tile_upload_time.as_secs_f64() * 1000.0
-                            ),
-                        ];
-                        for (backend_name, time) in map_data.backend_request_secs {
-                            debug_text.push(format!(
-                                " {}: {:.2}ms",
-                                backend_name,
-                                time.as_secs_f64() * 1000.0
-                            ));
-                        }
-                        for (name, data) in perf_data {
-                            let samples = data.get_samples();
-                            let text = if samples.len() == 1 {
-                                format!("{}: {:?}", name, samples[0])
-                            } else {
-                                let avg: Duration =
-                                    samples.iter().sum::<Duration>() / samples.len() as u32;
-                                format!("{}: {} times, {:?} avg", name, samples.len(), avg)
-                            };
-                            debug_text.push(text);
-                        }
-                        ids.debug_menu
-                            .resize(debug_text.len(), &mut ui.widget_id_generator());
+                        let debug_lines = 3 + map_data.backend_request_secs.len() + perf_data.len();
 
-                        for (i, text) in debug_text.iter().enumerate() {
-                            let gui_text = widget::Text::new(text.as_str())
+                        let mut i = 0;
+                        let mut buf: util::StringFormatter<512> = util::StringFormatter::new();
+                        ids.debug_menu
+                            .resize(debug_lines, &mut ui.widget_id_generator());
+
+                        let mut draw_text = |args: std::fmt::Arguments<'_>| {
+                            buf.clear();
+                            buf.write_fmt(args).unwrap();
+                            let gui_text = widget::Text::new(buf.as_str())
                                 .color(conrod_core::color::WHITE)
                                 .left_justify()
                                 .font_size(8)
@@ -263,6 +237,46 @@ pub fn run_app() {
                             let x = -ui.win_w / 2.0 + width / 2.0 + 4.0;
                             let y = ui.win_h / 2.0 - 8.0 - i as f64 * 11.0;
                             gui_text.x_y(x, y).set(ids.debug_menu[i], ui);
+                            i += 1;
+                            assert!(i <= debug_lines);
+                        };
+
+                        draw_text(format_args!(
+                            "FT: {:.2}, FPS: {}",
+                            frame_time_ms,
+                            (1000.0 / frame_time_ms) as u32
+                        ));
+                        draw_text(format_args!(
+                            "Zoom: {}, Tiles: {}",
+                            map_data.zoom, map_data.tiles_rendered
+                        ));
+                        draw_text(format_args!(
+                            "Decode: {:.2}ms, Upload: {:.2}ms",
+                            map_data.tile_decode_time.as_secs_f64() * 1000.0,
+                            map_data.tile_upload_time.as_secs_f64() * 1000.0
+                        ));
+
+                        for (backend_name, time) in map_data.backend_request_secs {
+                            draw_text(format_args!(
+                                "Decode: {:.2}ms, Upload: {:.2}ms",
+                                map_data.tile_decode_time.as_secs_f64() * 1000.0,
+                                map_data.tile_upload_time.as_secs_f64() * 1000.0
+                            ));
+                        }
+                        for (name, data) in perf_data {
+                            let samples = data.get_samples();
+                            let text = if samples.len() == 1 {
+                                draw_text(format_args!("{}: {:?}", name, samples[0]));
+                            } else {
+                                let avg: Duration =
+                                    samples.iter().sum::<Duration>() / samples.len() as u32;
+                                draw_text(format_args!(
+                                    "{}: {} times, {:?} avg",
+                                    name,
+                                    samples.len(),
+                                    avg
+                                ));
+                            };
                         }
                     }
                     //========== Draw Buttons ==========
@@ -323,7 +337,6 @@ pub fn run_app() {
                                 println!("Starting frame profiler");
                             }
                         }
-
                     }
 
                     ui_filter::draw(

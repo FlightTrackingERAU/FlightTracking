@@ -122,4 +122,8 @@ impl Backend for DiskCache {
 
         inner(PathBuf::from(self.0.folder_name)).ok()
     }
+
+    fn ignore_transparent_tiles(&self) -> bool {
+        false
+    }
 }

@@ -44,5 +44,7 @@ enum-map = "1.1"
 atomic_enum = "0.1"
 statrs = "0.15"
 
-[profile.release]
-debug = true
+#Enable for dist builds
+#[profile.release]
+#lto = true
+#codegen-units = 1

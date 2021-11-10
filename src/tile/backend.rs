@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use image::{ImageBuffer, Rgba};
+use image::{GenericImageView, ImageBuffer, Rgba};
 use simple_moving_average::{SumTreeSMA, SMA};
 
 use std::time::Duration;
@@ -72,10 +72,27 @@ pub trait Backend: Send + Sync {
                 .add_sample(duration);
         }
         match result {
-            Some(bytes) => Ok(Some(load_tile(bytes).await?)),
+            Some(bytes) => {
+                let image = load_tile(bytes).await?;
+                if self.ignore_transparent_tiles() {
+                    let mut it = image.pixels();
+                    if let Some(pixel) = it.next() {
+                        let a: [u8; 4] = pixel.0;
+                        if a[3] == 0 {
+                            println!("No alpha from: {}", self.name());
+                        }
+                    }
+                }
+                Ok(Some(image))
+            }
             None => Ok(None),
         }
     }
+
+    /// Returns true if transparent tiles should return Ok(None) when requested.
+    ///
+    /// Used for weather tiles so we avoid the need to load them
+    fn ignore_transparent_tiles(&self) -> bool;
 
     /// Queries the readiness status for a given tile in this backend.
     ///

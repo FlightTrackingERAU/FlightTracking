@@ -1,6 +1,7 @@
 /target
 Cargo.lock
 .cache/
+bench.txt
 
 #Debugging
 .gdb_history

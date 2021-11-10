@@ -201,4 +201,8 @@ impl Backend for WeatherRequester {
     fn tile_size(&self) -> Option<u32> {
         Some(self.tile_size)
     }
+
+    fn ignore_transparent_tiles(&self) -> bool {
+        true
+    }
 }
