@@ -91,10 +91,10 @@ pub fn run_app() {
 
     let airport_icon_bytes = include_bytes!("../assets/images/airport-icon.png");
     let airport_id = return_image_essentials(&display, airport_icon_bytes, &mut image_map);
-//Making airport image ids that goes on button
+    //Making airport image ids that goes on button
     let airport_image_bytes = include_bytes!("../assets/images/airport-image.png");
     let airport_image_id = return_image_essentials(&display, airport_image_bytes, &mut image_map);
-    
+
     let noto_sans_ttf = include_bytes!("../assets/fonts/NotoSans/NotoSans-Regular.ttf");
     let noto_sans = Font::from_bytes(noto_sans_ttf).expect("Failed to decode font");
     let _noto_sans = ui.fonts.insert(noto_sans);
@@ -202,11 +202,11 @@ pub fn run_app() {
                     }
 
                     //========== Draw Airports ==========
-                  if airport_enabled == true {
-                    airports::airport_renderer::draw(
-                        &airports, &viewer, &display, &mut ids, airport_id, ui,
-                    );
-                }
+                    if airport_enabled == true {
+                        airports::airport_renderer::draw(
+                            &airports, &viewer, &display, &mut ids, airport_id, ui,
+                        );
+                    }
                     //=========Draw Plane============
                     plane_renderer::draw(
                         &mut plane_requester,
@@ -297,7 +297,7 @@ pub fn run_app() {
                     ) {
                         weather_enabled = !weather_enabled;
                     }
-                   //========== Draw Debug Button ==========
+                    //========== Draw Debug Button ==========
                     if button_widget::draw_circle_with_image(
                         ids.debug_button,
                         ui,
@@ -307,7 +307,7 @@ pub fn run_app() {
                     ) {
                         debug_enabled = !debug_enabled;
                     }
-                   //========== Draw Airplane Button ==========
+                    //========== Draw Airplane Button ==========
                     if button_widget::draw_circle_with_image(
                         ids.airplane_button,
                         ui,
@@ -315,7 +315,7 @@ pub fn run_app() {
                         widget_x_position,
                         widget_y_position,
                     ) {
-                       filter_enabled = !filter_enabled;
+                        filter_enabled = !filter_enabled;
                     }
                     //========== Draw Airport Button ==========
                     if button_widget::draw_circle_with_image(
@@ -325,71 +325,71 @@ pub fn run_app() {
                         widget_x_position,
                         widget_y_position - 210.0,
                     ) {
-                       airport_enabled = !airport_enabled;
+                        airport_enabled = !airport_enabled;
                     }
-                     //========== Filtering buttons enabling/disabling ==========
-if filter_enabled == true {
-                   //========== Draw American Airlines Filter ==========
-                    if ui_filter::draw(
-                        ids.filer_button[0],        
-                        ui,
-                        String::from("American Airlines"),
-                        widget_x_position - 130.0,
-                        widget_y_position,
-                    ) {
-                        show_airline = Airlines::AmericanAL;
+                    //========== Filtering buttons enabling/disabling ==========
+                    if filter_enabled == true {
+                        //========== Draw American Airlines Filter ==========
+                        if ui_filter::draw(
+                            ids.filer_button[0],
+                            ui,
+                            String::from("American Airlines"),
+                            widget_x_position - 130.0,
+                            widget_y_position,
+                        ) {
+                            show_airline = Airlines::AmericanAL;
+                        }
+                        //========== Draw Spirit Filter ==========
+                        if ui_filter::draw(
+                            ids.filer_button[1],
+                            ui,
+                            String::from("Spirit"),
+                            widget_x_position - 130.0,
+                            widget_y_position - 40.0,
+                        ) {
+                            show_airline = Airlines::Spirit;
+                        }
+                        //========== Draw SouthWest Filter ==========
+                        if ui_filter::draw(
+                            ids.filer_button[2],
+                            ui,
+                            String::from("Southwest"),
+                            widget_x_position - 130.0,
+                            widget_y_position - 80.0,
+                        ) {
+                            show_airline = Airlines::SouthWest;
+                        }
+                        //========== Draw United Filter ==========
+                        if ui_filter::draw(
+                            ids.filer_button[3],
+                            ui,
+                            String::from("United"),
+                            widget_x_position - 130.0,
+                            widget_y_position - 120.0,
+                        ) {
+                            show_airline = Airlines::United
+                        }
+                        //========== Draw Other Filter ==========
+                        if ui_filter::draw(
+                            ids.filer_button[4],
+                            ui,
+                            String::from("Other Airlines"),
+                            widget_x_position - 130.0,
+                            widget_y_position - 160.0,
+                        ) {
+                            show_airline = Airlines::Other
+                        }
+                        //========== Draw All Filter ==========
+                        if ui_filter::draw(
+                            ids.filer_button[5],
+                            ui,
+                            String::from("All"),
+                            widget_x_position - 130.0,
+                            widget_y_position - 200.0,
+                        ) {
+                            show_airline = Airlines::All
+                        }
                     }
-                    //========== Draw Spirit Filter ==========
-                    if ui_filter::draw(
-                        ids.filer_button[1],
-                        ui,
-                        String::from("Spirit"),
-                        widget_x_position - 130.0,
-                        widget_y_position - 40.0,
-                    ) {
-                        show_airline = Airlines::Spirit;
-                    }
-                      //========== Draw SouthWest Filter ==========
-                    if ui_filter::draw(
-                        ids.filer_button[2],
-                        ui,
-                        String::from("Southwest"),
-                        widget_x_position - 130.0,
-                        widget_y_position - 80.0,
-                    ) {
-                        show_airline = Airlines::SouthWest;
-                    }
-                    //========== Draw United Filter ==========
-                    if ui_filter::draw(
-                        ids.filer_button[3],
-                        ui,
-                        String::from("United"),
-                        widget_x_position - 130.0,
-                        widget_y_position - 120.0,
-                    ) {
-                        show_airline = Airlines::United
-                    }
-                //========== Draw Other Filter ==========
-                    if ui_filter::draw(
-                        ids.filer_button[4],
-                        ui,
-                        String::from("Other Airlines"),
-                        widget_x_position - 130.0,
-                        widget_y_position - 160.0,
-                    ) {
-                        show_airline = Airlines::Other
-                    }
-                    //========== Draw All Filter ==========
-                    if ui_filter::draw(
-                        ids.filer_button[5],
-                        ui,
-                        String::from("All"),
-                        widget_x_position - 130.0,
-                        widget_y_position - 200.0,
-                    ) {
-                        show_airline = Airlines::All
-                    }
-                }
                     scope_render_buttons.end();
 
                     display.gl_window().window().request_redraw();
