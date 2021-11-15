@@ -36,25 +36,31 @@ impl DiskCacheData {
     }
 }
 
-pub struct DiskCache(DiskCacheData);
+pub struct DiskCache {
+    inner: DiskCacheData,
+    ignore_transparent_tiles: bool,
+}
 
 impl DiskCache {
-    pub fn new(data: DiskCacheData) -> Self {
+    pub fn new(data: DiskCacheData, ignore_transparent_tiles: bool) -> Self {
         //Try to create dir. If it fails, we don't care
         let _ = std::fs::create_dir_all(format!("./{}", data.folder_name));
-        Self(data)
+        Self {
+            inner: data,
+            ignore_transparent_tiles,
+        }
     }
 }
 
 #[async_trait]
 impl Backend for DiskCache {
     async fn request_inner(&self, tile: TileId) -> Result<Option<Vec<u8>>, TileError> {
-        let path = get_tile_path(self.0.folder_name, self.0.image_extension, tile);
+        let path = get_tile_path(self.inner.folder_name, self.inner.image_extension, tile);
         match std::fs::metadata(&path) {
             Ok(metadata) => {
                 if let Ok(last_modified) = metadata.modified() {
                     if let Ok(age) = SystemTime::now().duration_since(last_modified) {
-                        if age > self.0.invalidate_time {
+                        if age > self.inner.invalidate_time {
                             if let Err(err) = tokio::fs::remove_file(&path).await {
                                 println!(
                                     "Error: {:?} while deleting old tile {:?} at {}. {:?} old",
@@ -73,7 +79,7 @@ impl Backend for DiskCache {
     }
 
     async fn readiness(&self, tile: TileId) -> ReadinessStatus {
-        let path = get_tile_path(self.0.folder_name, self.0.image_extension, tile);
+        let path = get_tile_path(self.inner.folder_name, self.inner.image_extension, tile);
         match std::fs::metadata(&path) {
             Ok(_) => ReadinessStatus::Available,
             Err(_) => ReadinessStatus::NotAvailable,
@@ -120,10 +126,10 @@ impl Backend for DiskCache {
             Err(std::io::Error::last_os_error())
         }
 
-        inner(PathBuf::from(self.0.folder_name)).ok()
+        inner(PathBuf::from(self.inner.folder_name)).ok()
     }
 
     fn ignore_transparent_tiles(&self) -> bool {
-        false
+        self.ignore_transparent_tiles
     }
 }

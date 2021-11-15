@@ -14,7 +14,7 @@ use std::time::Duration;
 
 struct MemoryTile {
     pub id: TileId,
-    pub image: image::RgbaImage,
+    pub image: Option<image::RgbaImage>,
 }
 
 /// Holds multiple levels of cache for requesting tiles in a generic manner.
@@ -34,6 +34,7 @@ pub struct TilePipeline {
 
 #[derive(Debug, Copy, Clone)]
 enum CachedTile {
+    NotAvailable,
     Pending,
     Cached(conrod_core::image::Id),
 }
@@ -83,6 +84,7 @@ impl TilePipeline {
                     //println!("Got tile for {:?}", id);
                     return Some(id);
                 }
+                Some(&CachedTile::NotAvailable) => return None,
                 Some(&CachedTile::Pending) => return None,
                 None => {}
             };
@@ -141,14 +143,20 @@ impl TilePipeline {
             }
             let tile_id = tile.id;
 
-            let texture = create_texture(display, tile.image);
-            let image_id = image_map.insert(texture);
+            match tile.image {
+                None => {
+                    let _ = guard.insert(tile_id, CachedTile::NotAvailable);
+                }
+                Some(image) => {
+                    let texture = create_texture(display, image);
+                    let image_id = image_map.insert(texture);
 
-            //guard.insert(tile_coord_to_u64(tile), cached_tile);
-            guard.insert(tile_id, CachedTile::Cached(image_id));
+                    //guard.insert(tile_coord_to_u64(tile), cached_tile);
+                    guard.insert(tile_id, CachedTile::Cached(image_id));
 
-            //println!("Set tile {:?}", tile_id);
-            tiles_processed += 1;
+                    tiles_processed += 1;
+                }
+            }
         }
     }
 }
@@ -172,8 +180,13 @@ async fn tile_requester(
                 //Go through each level of cache and try to obtain tile
                 match backend.request(tile).await {
                     Ok(Some(image)) => {
-                        let _ = upload_tx.send(MemoryTile { image, id: tile }).await;
-                        break;
+                        let _ = upload_tx
+                            .send(MemoryTile {
+                                image: Some(image),
+                                id: tile,
+                            })
+                            .await;
+                        return;
                     }
                     Ok(None) => {}
                     Err(err) => {
@@ -181,6 +194,12 @@ async fn tile_requester(
                     }
                 }
             }
+            let _ = upload_tx
+                .send(MemoryTile {
+                    image: None,
+                    id: tile,
+                })
+                .await;
         });
     }
 }

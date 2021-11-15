@@ -217,7 +217,7 @@ pub fn run_app() {
                             guard.snapshot()
                         };
 
-                        let debug_lines = 3 + map_data.backend_request_secs.len() + perf_data.len();
+                        let debug_lines = 4 + map_data.backend_request_secs.len() + perf_data.len();
 
                         let mut i = 0;
                         let mut buf: util::StringFormatter<512> = util::StringFormatter::new();
@@ -255,17 +255,13 @@ pub fn run_app() {
                             map_data.tile_decode_time.as_secs_f64() * 1000.0,
                             map_data.tile_upload_time.as_secs_f64() * 1000.0
                         ));
-
+ 
                         for (backend_name, time) in map_data.backend_request_secs {
-                            draw_text(format_args!(
-                                "Decode: {:.2}ms, Upload: {:.2}ms",
-                                map_data.tile_decode_time.as_secs_f64() * 1000.0,
-                                map_data.tile_upload_time.as_secs_f64() * 1000.0
-                            ));
+                            draw_text(format_args!("  {} {:?}", backend_name, time,));
                         }
                         for (name, data) in perf_data {
                             let samples = data.get_samples();
-                            let text = if samples.len() == 1 {
+                            if samples.len() == 1 {
                                 draw_text(format_args!("{}: {:?}", name, samples[0]));
                             } else {
                                 let avg: Duration =
@@ -375,6 +371,7 @@ pub fn run_app() {
                     frame_counter += 1;
                     let now = Instant::now();
                     if now - last_fps_print >= Duration::from_secs(1) {
+                        let _ = frame_counter;
                         //println!("FPS: {}", frame_counter);
                         last_fps_print = now;
                         frame_counter = 0;

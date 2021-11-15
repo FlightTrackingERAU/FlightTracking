@@ -77,10 +77,8 @@ pub trait Backend: Send + Sync {
                 if self.ignore_transparent_tiles() {
                     let mut it = image.pixels();
                     if let Some(pixel) = it.next() {
-                        let a: [u8; 4] = pixel.0;
-                        if a[3] == 0 {
-                            println!("No alpha from: {}", self.name());
-                        }
+                        let pixel: [u8; 4] = pixel.0;
+                        println!("alpha {} from: {}", pixel[3], self.name());
                     }
                 }
                 Ok(Some(image))
