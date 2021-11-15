@@ -159,6 +159,10 @@ impl Backend for WeatherRequester {
                             args.set_color(rain_viewer::ColorKind::TheWeatherChannel);
                             match self.req.get_tile(&available.data, last_frame, args).await {
                                 Ok(bytes) => {
+                                    if bytes.len() == 125 {
+                                        //Found transparent image
+                                        return Ok(None);
+                                    }
                                     let _ =
                                         self.cache_data.cache_tile(tile, bytes.as_slice()).await;
                                     return Ok(Some(bytes));
@@ -202,5 +206,9 @@ impl Backend for WeatherRequester {
 
     fn tile_size(&self) -> Option<u32> {
         Some(self.tile_size)
+    }
+
+    fn ignore_transparent_tiles(&self) -> bool {
+        true
     }
 }

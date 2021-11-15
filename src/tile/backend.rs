@@ -72,10 +72,18 @@ pub trait Backend: Send + Sync {
                 .add_sample(duration);
         }
         match result {
-            Some(bytes) => Ok(Some(load_tile(bytes).await?)),
+            Some(bytes) => {
+                let image = load_tile(bytes).await?;
+                Ok(Some(image))
+            }
             None => Ok(None),
         }
     }
+
+    /// Returns true if transparent tiles should return Ok(None) when requested.
+    ///
+    /// Used for weather tiles so we avoid the need to load them
+    fn ignore_transparent_tiles(&self) -> bool;
 
     /// Queries the readiness status for a given tile in this backend.
     ///
