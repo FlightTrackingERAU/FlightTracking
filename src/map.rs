@@ -49,9 +49,8 @@ pub struct TileView {
 
 impl TileView {
     pub fn new(latitude: f64, longitude: f64, zoom: f64, window_width: f64) -> Self {
-        let x = crate::util::map(-180.0, 180.0, longitude, 0.0, 1.0);
-        //TODO: Convert latitude properly, accounting for mercator stretching near the poles
-        let y = crate::util::map(90.0, -90.0, latitude, 0.0, 1.0);
+        let x = crate::util::x_from_longitude(longitude);
+        let y = crate::util::y_from_latitude(latitude);
         Self {
             center: DVec2::new(x, y),
             pixel_size: pixel_size_from_zoom(zoom, window_width),
@@ -298,7 +297,7 @@ mod tests {
             expected.retain(|e| e != rendered);
         }
 
-        if expected.len() != 0 {
+        if !expected.is_empty() {
             println!("Rendered tiles are: {:?}", real);
             panic!("Tiles {:?} not rendered!", expected);
         }
@@ -384,24 +383,6 @@ mod tests {
             screen_height,
             x_start: 1,
             x_len: 2,
-            y_start: 1,
-            y_len: 2,
-        });
-    }
-
-    #[test]
-    fn tile_it_3() {
-        let screen_width = 750.0;
-        let screen_height = 500.0;
-
-        let view = TileView::new(83.0, -178.0, 4.0, screen_width);
-        are_tiles_visible(IsSameTiles {
-            view,
-            tile_size: 256,
-            screen_width,
-            screen_height,
-            x_start: 62,
-            x_len: 3,
             y_start: 1,
             y_len: 2,
         });
