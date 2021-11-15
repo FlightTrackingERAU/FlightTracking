@@ -309,8 +309,9 @@ pub fn run_app() {
 
                         let mut i = 0;
                         let mut buf: util::StringFormatter<512> = util::StringFormatter::new();
-                        ids.debug_menu
-                            .resize(debug_lines, &mut ui.widget_id_generator());
+                        overlay_ids
+                            .debug_menu
+                            .resize(debug_lines, &mut overlay_ui.widget_id_generator());
 
                         let mut draw_text = |args: std::fmt::Arguments<'_>| {
                             buf.clear();
@@ -320,11 +321,13 @@ pub fn run_app() {
                                 .left_justify()
                                 .font_size(8)
                                 .font_id(b612_overlay);
-                          
-                            let width = gui_text.get_w(ui).unwrap();
-                            let x = -ui.win_w / 2.0 + width / 2.0 + 4.0;
-                            let y = ui.win_h / 2.0 - 8.0 - i as f64 * 11.0;
-                            gui_text.x_y(x, y).set(ids.debug_menu[i], ui);
+
+                            let width = gui_text.get_w(overlay_ui).unwrap();
+                            let x = -overlay_ui.win_w / 2.0 + width / 2.0 + 4.0;
+                            let y = overlay_ui.win_h / 2.0 - 8.0 - i as f64 * 11.0;
+                            gui_text
+                                .x_y(x, y)
+                                .set(overlay_ids.debug_menu[i], overlay_ui);
                             i += 1;
                             assert!(i <= debug_lines);
                         };
@@ -398,8 +401,8 @@ pub fn run_app() {
                     );
 
                     if button_widget::draw_circle_with_image(
-                        ids.bench_button,
-                        ui,
+                        overlay_ids.bench_button,
+                        overlay_ui,
                         bench_id,
                         widget_x_position,
                         widget_y_position - 210.0,
