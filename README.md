@@ -1,3 +1,3 @@
 Flight Tracking
 
-![This is an image] (/assets/image/airplane-image.png)
+![This is an image] (../develop/assets/image/airplane-image.png)
