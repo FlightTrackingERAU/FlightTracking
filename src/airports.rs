@@ -30,9 +30,11 @@ pub fn airports_from_bytes(bytes: &[u8]) -> Result<Vec<Airport>, Box<bincode::Er
 
     let airports = airports
         .into_iter()
-        .filter(|airport| match airport.airport_type.as_str() {
-            "medium_airport" | "large_airport" => true,
-            _ => false,
+        .filter(|airport| {
+            matches!(
+                airport.airport_type.as_str(),
+                "medium_airport" | "large_airport"
+            )
         })
         .collect();
 

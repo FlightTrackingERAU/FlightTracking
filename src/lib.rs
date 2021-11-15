@@ -202,7 +202,7 @@ pub fn run_app() {
                     }
 
                     //========== Draw Airports ==========
-                    if airport_enabled == true {
+                    if airport_enabled {
                         airports::airport_renderer::draw(
                             &airports, &viewer, &display, &mut ids, airport_id, ui,
                         );
@@ -221,7 +221,7 @@ pub fn run_app() {
 
                     let perf_data = crate::take_profile_data();
 
-                    if debug_enabled == true {
+                    if debug_enabled {
                         let _scope_debug_view = crate::profile_scope("Render Debug Information");
                         let mut perf_data: Vec<_> = perf_data.into_iter().collect();
                         perf_data.sort_unstable_by(|a, b| a.0.cmp(b.0));
@@ -287,6 +287,17 @@ pub fn run_app() {
 
                     let widget_x_position = (ui.win_w / 2.0) * 0.95 - 25.0;
                     let widget_y_position = (ui.win_h / 2.0) * 0.90;
+
+                    if button_widget::draw_circle_with_image(
+                        ids.airplane_button,
+                        ui,
+                        airplane_button_ids,
+                        widget_x_position,
+                        widget_y_position,
+                    ) {
+                        filter_enabled = !filter_enabled;
+                    }
+
                     //========== Draw weather Button ==========
                     if button_widget::draw_circle_with_image(
                         ids.weather_button,
@@ -307,16 +318,6 @@ pub fn run_app() {
                     ) {
                         debug_enabled = !debug_enabled;
                     }
-                    //========== Draw Airplane Button ==========
-                    if button_widget::draw_circle_with_image(
-                        ids.airplane_button,
-                        ui,
-                        airplane_button_ids,
-                        widget_x_position,
-                        widget_y_position,
-                    ) {
-                        filter_enabled = !filter_enabled;
-                    }
                     //========== Draw Airport Button ==========
                     if button_widget::draw_circle_with_image(
                         ids.airport_button,
@@ -328,7 +329,7 @@ pub fn run_app() {
                         airport_enabled = !airport_enabled;
                     }
                     //========== Filtering buttons enabling/disabling ==========
-                    if filter_enabled == true {
+                    if filter_enabled {
                         //========== Draw American Airlines Filter ==========
                         if ui_filter::draw(
                             ids.filer_button[0],
