@@ -77,9 +77,8 @@ pub fn run_app() {
     let airplane_button_ids =
         return_image_essentials(&display, airplane_button_bytes, &mut image_map);
 
-    //Making airplane image ids for plane rendering
-    let plane_images_bytes = include_bytes!("../assets/images/airplane-image.png");
-    let plane_ids = return_image_essentials(&display, plane_images_bytes, &mut image_map);
+    //A map of airlines images ids.
+    let airline_ids = plane_renderer::airlines_ids(&display, &mut image_map);
     //Making weather images ids
     let weather_image_bytes = include_bytes!("../assets/images/weather-icon.png");
     let weather_id = return_image_essentials(&display, weather_image_bytes, &mut image_map);
@@ -121,6 +120,8 @@ pub fn run_app() {
     let mut debug_enabled = true;
 
     let mut show_airline = Airlines::All;
+    //stores the plane ids;
+    let mut plane_id = airline_ids[show_airline];
 
     event_loop.run(move |event, _, control_flow| {
         use glium::glutin::event::{
@@ -208,7 +209,7 @@ pub fn run_app() {
                         show_airline,
                         &viewer,
                         &mut ids,
-                        plane_ids,
+                        plane_id,
                         ui,
                     );
 
@@ -319,6 +320,7 @@ pub fn run_app() {
                         widget_y_position,
                     ) {
                         show_airline = Airlines::AmericanAL;
+                        plane_id = airline_ids[show_airline];
                     }
 
                     if ui_filter::draw(
@@ -329,6 +331,7 @@ pub fn run_app() {
                         widget_y_position - 40.0,
                     ) {
                         show_airline = Airlines::Spirit;
+                        plane_id = airline_ids[show_airline];
                     }
 
                     if ui_filter::draw(
@@ -339,6 +342,7 @@ pub fn run_app() {
                         widget_y_position - 80.0,
                     ) {
                         show_airline = Airlines::SouthWest;
+                        plane_id = airline_ids[show_airline];
                     }
 
                     if ui_filter::draw(
@@ -348,7 +352,8 @@ pub fn run_app() {
                         widget_x_position - 130.0,
                         widget_y_position - 120.0,
                     ) {
-                        show_airline = Airlines::United
+                        show_airline = Airlines::United;
+                        plane_id = airline_ids[show_airline];
                     }
 
                     if ui_filter::draw(
@@ -358,7 +363,8 @@ pub fn run_app() {
                         widget_x_position - 130.0,
                         widget_y_position - 160.0,
                     ) {
-                        show_airline = Airlines::Other
+                        show_airline = Airlines::Other;
+                        plane_id = airline_ids[show_airline];
                     }
                     if ui_filter::draw(
                         ids.filer_button[5],
@@ -367,7 +373,8 @@ pub fn run_app() {
                         widget_x_position - 130.0,
                         widget_y_position - 200.0,
                     ) {
-                        show_airline = Airlines::All
+                        show_airline = Airlines::All;
+                        plane_id = airline_ids[show_airline];
                     }
                     scope_render_buttons.end();
 
