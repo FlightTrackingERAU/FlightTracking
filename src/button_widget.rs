@@ -29,16 +29,11 @@ pub struct CircularButton<'a, S> {
     common: widget::CommonBuilder,
     /// Optional label string for the button.
     maybe_label: Option<&'a str>,
-
     ///Type of Button (Image or Text)
     show: S,
-
     ///What type of Button, Image or Flat
     /// See the Style struct below.
     style: Style,
-    /// Whether the button is currently enabled, i.e. whether it responds to
-    /// user input.
-    enabled: bool,
 }
 
 /// Represents the unique styling for our CircularButton widget.
@@ -106,13 +101,6 @@ impl<'a, S> CircularButton<'a, S> {
         self.style.label_font_id = Some(Some(font_id));
         self
     }
-
-    ///Enabled button
-    #[allow(dead_code)]
-    pub fn enabled(mut self, flag: bool) -> Self {
-        self.enabled = flag;
-        self
-    }
 }
 
 impl<'a> CircularButton<'a, Image> {
@@ -129,7 +117,6 @@ impl<'a> CircularButton<'a, Image> {
                 src_rect: None,
             },
             style: Style::default(),
-            enabled: true,
         }
     }
 
@@ -176,14 +163,13 @@ impl<'a> CircularButton<'a, Flat> {
             },
             style: Style::default(),
             maybe_label: None,
-            enabled: true,
         }
     }
 }
 impl<'a> Widget for CircularButton<'a, Image> {
     type State = ImageState;
     type Style = Style;
-    type Event = Option<()>;
+    type Event = bool;
 
     fn init_state(&self, id_gen: widget::id::Generator) -> Self::State {
         ImageState {
@@ -211,7 +197,7 @@ impl<'a> Widget for CircularButton<'a, Image> {
             ..
         } = self;
 
-        //Initiate image
+        // Instantiate image
         let Image {
             image_id,
             hover_image_id: _,
@@ -220,11 +206,11 @@ impl<'a> Widget for CircularButton<'a, Image> {
             src_rect,
         } = show;
 
-        let (button_color, event) = {
+        let (button_color, was_clicked) = {
             let input = ui.widget_input(id);
 
             //If button was clicked
-            let event = input.clicks().left().next().map(|_| ());
+            let was_clicked = input.clicks().left().next().is_some();
 
             let color = style.color(&ui.theme);
             let color = input.mouse().map_or(color, |mouse| {
@@ -235,19 +221,18 @@ impl<'a> Widget for CircularButton<'a, Image> {
                 }
             });
 
-            (color, event)
+            (color, was_clicked)
         };
 
         let radius = rect.w() / 2.0;
 
         //Drawing the circle
-        widget::Circle::fill(radius)
+        widget::Oval::fill([radius * 2.0, radius * 2.0])
+            .resolution(26)
             .middle_of(id)
             .graphics_for(id)
             .color(button_color)
             .set(state.ids.circle, ui);
-
-        let image_id = image_id;
 
         let (x, y, w, h) = rect.x_y_w_h();
 
@@ -276,7 +261,7 @@ impl<'a> Widget for CircularButton<'a, Image> {
 
         image.set(state.ids.image, ui);
 
-        event
+        was_clicked
     }
 }
 impl<'a> Widget for CircularButton<'a, Flat> {
@@ -321,17 +306,17 @@ impl<'a> Widget for CircularButton<'a, Flat> {
 
             (color, event)
         };
-
         let radius = rect.w() / 2.0;
 
-        //Drawing the circle
-        widget::Circle::fill(radius)
+        // Drawing the circle
+        widget::Oval::fill([radius * 2.0, radius * 2.0])
+            .resolution(26)
             .middle_of(id)
             .graphics_for(id)
             .color(color)
             .set(state.ids.circle, ui);
 
-        //Instantiate label
+        // Instantiate label
         if let Some(label) = self.maybe_label {
             let label_color = style.label_color(&ui.theme);
             let font_size = style.label_font_size(&ui.theme);
@@ -402,5 +387,4 @@ pub fn draw_circle_with_image(
         .label_color(conrod_core::color::WHITE)
         .label("Airplane Button")
         .set(widget, ui)
-        .is_some()
 }

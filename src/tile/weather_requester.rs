@@ -1,6 +1,6 @@
 //atomic enum generates a compare_and_swap function that calls to AtomicUsize's compare_and_swap
 //which is deprecated.
-//We dont use compare_and_swap function so its fine
+//We don't use compare_and_swap function so its fine
 //Because it generates this from within a macro, we unfortunately need to disable deprecation
 //warnings for the whole file :[
 #![allow(deprecated)]
@@ -41,6 +41,7 @@ pub struct WeatherRequester {
     state: AtomicWeatherDataState,
     tile_size: u32,
     cache_data: DiskCacheData,
+    req: rain_viewer::WeatherRequester,
 }
 
 impl WeatherRequester {
@@ -50,13 +51,14 @@ impl WeatherRequester {
             state: AtomicWeatherDataState::new(WeatherDataState::Uninitialized),
             tile_size: 512,
             cache_data,
+            req: rain_viewer::WeatherRequester::new(),
         }
     }
 }
 
 impl WeatherRequester {
     async fn update_maps(&self) -> Result<WeatherData, rain_viewer::Error> {
-        rain_viewer::available().await.map(|data| WeatherData {
+        self.req.available().await.map(|data| WeatherData {
             data,
             time: Instant::now(),
         })
@@ -155,7 +157,7 @@ impl Backend for WeatherRequester {
                         {
                             args.set_size(self.tile_size).unwrap();
                             args.set_color(rain_viewer::ColorKind::TheWeatherChannel);
-                            match rain_viewer::get_tile(&available.data, last_frame, args).await {
+                            match self.req.get_tile(&available.data, last_frame, args).await {
                                 Ok(bytes) => {
                                     if bytes.len() == 125 {
                                         //Found transparent image
