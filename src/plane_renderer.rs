@@ -12,11 +12,10 @@ pub struct Vertex {
     pub position: [f32; 2],
     pub angle: f32,
     pub offset: [f32; 2],
-    pub dpi_factor: f32,
     pub tex_coords: [f32; 2],
 }
 
-implement_vertex!(Vertex, position, angle, offset, dpi_factor, tex_coords); // don't forget to add `tex_coords` here
+implement_vertex!(Vertex, position, angle, offset, tex_coords); // don't forget to add `tex_coords` here
 
 pub struct PlaneRenderer<'a> {
     pub program: Program,
@@ -35,11 +34,12 @@ impl<'a> PlaneRenderer<'a> {
             in vec2 position;
             in float angle;
             in vec2 offset;
-            in float dpi_factor;
             in vec2 tex_coords;
+
             out vec2 v_tex_coords;
 
             uniform mat4 matrix;
+            uniform float dpi_factor;
 
             void main() {
                 v_tex_coords = tex_coords;
@@ -141,7 +141,7 @@ impl<'a> PlaneRenderer<'a> {
                 let offset = [offset_x, offset_y];
 
                 // Generate the vertices
-                let plane = plane_shape(plane.track, offset, dpi_factor);
+                let plane = plane_shape(plane.track, offset);
 
                 for vertex in plane {
                     self.vertices.push(vertex);
@@ -161,6 +161,7 @@ impl<'a> PlaneRenderer<'a> {
         let uniforms = uniform! {
             matrix: matrix,
             tex: &self.texture,
+            dpi_factor: dpi_factor
         };
 
         target
@@ -199,33 +200,29 @@ pub fn world_y_to_window_y(world_y: f64, viewport: &crate::map::WorldViewport) -
     ) as f32
 }
 
-fn plane_shape(angle: f32, offset: [f32; 2], dpi_factor: f32) -> [Vertex; 6] {
+fn plane_shape(angle: f32, offset: [f32; 2]) -> [Vertex; 6] {
     let vertex1 = Vertex {
         position: [-1.0, 1.0],
         angle,
         offset,
-        dpi_factor,
         tex_coords: [0.0, 1.0],
     };
     let vertex2 = Vertex {
         position: [1.0, 1.0],
         angle,
         offset,
-        dpi_factor,
         tex_coords: [1.0, 1.0],
     };
     let vertex3 = Vertex {
         position: [1.0, -1.0],
         angle,
         offset,
-        dpi_factor,
         tex_coords: [1.0, 0.0],
     };
     let vertex4 = Vertex {
         position: [-1.0, -1.0],
         angle,
         offset,
-        dpi_factor,
         tex_coords: [0.0, 0.0],
     };
 
