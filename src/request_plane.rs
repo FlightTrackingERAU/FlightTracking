@@ -12,13 +12,15 @@ use opensky_api::errors::Error;
 pub struct Plane {
     pub longitude: f32,
     pub latitude: f32,
+    pub track: f32,
 }
 impl Plane {
     ///Constructor on to make a new Plane
-    pub fn new(longitude: f32, latitude: f32) -> Self {
+    pub fn new(longitude: f32, latitude: f32, track: f32) -> Self {
         Plane {
             longitude,
             latitude,
+            track,
         }
     }
 }
@@ -88,6 +90,7 @@ async fn request_plane_data() -> Result<Vec<Plane>, Error> {
     for state in open_sky.states {
         let longitude = state.longitude;
         let latitude = state.latitude;
+        let track = (-state.true_track.unwrap_or(0.0) + 90.0) * (std::f32::consts::PI / 180.0);
 
         if !state.on_ground {
             if let Some(longitude) = longitude {
@@ -96,6 +99,7 @@ async fn request_plane_data() -> Result<Vec<Plane>, Error> {
                 let plane = Plane {
                     longitude,
                     latitude,
+                    track,
                 };
                 plane_list.push(plane);
             }

@@ -3,6 +3,8 @@ use itertools::Itertools;
 use std::convert::TryInto;
 use std::ops::Range;
 
+use crate::MAX_ZOOM_LEVEL;
+
 /// Representation of tile zoom levels.
 /// Unsigned value that indicated exponential zoom.
 /// 0 = Whole world is visible
@@ -134,15 +136,15 @@ impl TileView {
     ) -> TileViewIterator {
         //Tile zoom maxes out at 20.
         //TODO: Make this configurable in case tile providers have different maxes
-        let tile_zoom = self.tile_zoom_level(tile_size).min(20);
-        let max_tile = 2u32.pow(tile_zoom);
+        let tile_zoom = self.tile_zoom_level(tile_size).min(MAX_ZOOM_LEVEL);
+        let max_tile = 2u32.pow(tile_zoom) as f64;
 
         //Tile size is the size of a tile in pixels based on the current zoom level
         //We know how large each pixel should be in world coordinates, and how big the tile should
         //be in world coordinates. Use one to calculate the other
 
         //Units are world units (aka 1/(tile units))
-        let tile_length = 1.0 / max_tile as f64;
+        let tile_length = 1.0 / max_tile;
         let tile_size_world = DVec2::new(tile_length, tile_length);
 
         //`self.pixel_size` units are (world/pixel), so inv is (pixel/world)
@@ -161,12 +163,7 @@ impl TileView {
             top_left_world.y.rem_euclid(1.0),
         );
 
-        //        let bottom_right = DVec2::new(
-        //            bottom_right_world.x.rem_euclid(1.0),
-        //            bottom_right_world.y.rem_euclid(1.0),
-        //        );
-
-        let dest_max = DVec2::new(max_tile as f64, max_tile as f64);
+        let dest_max = DVec2::new(max_tile, max_tile);
 
         //Next map world coordinates to tile coordinates (0..1) to (0..max_tile)
         let top_left_tiles = top_left * dest_max;
@@ -180,16 +177,16 @@ impl TileView {
         let (tiles_wide, tiles_high) = {
             let diff = bottom_right_world - top_left_world;
             (
-                (diff.x * max_tile as f64).ceil() as u32 + 1,
-                (diff.y * max_tile as f64).ceil() as u32 + 2,
+                (diff.x * max_tile).ceil() as u32 + 1,
+                (diff.y * max_tile).ceil() as u32 + 2,
             )
         };
 
-        //We have all the values to make the iterator
+        // We have all the values to make the iterator
         TileViewIterator {
             product: (first_x..(first_x + tiles_wide))
                 .cartesian_product(first_y..first_y + tiles_high),
-            max_tile,
+            max_tile: max_tile as u32,
             //Invert x because we want to pull the first tile to the left so it moves across the
             //screen well.
             //We need the first_offset.y - 1.0 to shift the tile up by one. Otherwise we have an

@@ -1,8 +1,6 @@
 use super::*;
 use crate::{TileId, WorldViewport};
 
-use parking_lot::Mutex;
-
 use simple_moving_average::SMA;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc::{Receiver, Sender, UnboundedReceiver, UnboundedSender};
@@ -24,9 +22,7 @@ pub struct TilePipeline {
     backends: Arc<Vec<Box<dyn Backend>>>,
 
     /// The cache of tiles on the GPU
-    // Use a blocking mutex here because contention is low, and the critical section is short
-    //cache: Mutex<IntMap<CachedTile>>,
-    cache: Mutex<IntMap<CachedTile>>,
+    cache: IntMap<CachedTile>,
     upload_rx: Receiver<MemoryTile>,
     request_tx: Arc<UnboundedSender<TileId>>,
     tile_size: AtomicU32,
@@ -37,11 +33,6 @@ enum CachedTile {
     NotAvailable,
     Pending,
     Cached(conrod_core::image::Id),
-}
-
-pub struct TilePipelineGuard<'a> {
-    request_tx: Arc<UnboundedSender<TileId>>,
-    guard: parking_lot::MutexGuard<'a, IntMap<CachedTile>>,
 }
 
 impl TilePipeline {
@@ -57,7 +48,7 @@ impl TilePipeline {
         let backends = Arc::new(backends);
         runtime.spawn(tile_requester(upload_tx, request_rx, backends.clone()));
         Self {
-            cache: Mutex::new(IntMap::with_capacity(1024)),
+            cache: IntMap::with_capacity(1024),
             upload_rx,
             request_tx: Arc::new(request_tx),
             backends,
@@ -65,19 +56,12 @@ impl TilePipeline {
         }
     }
 
-    pub fn lock(&self) -> TilePipelineGuard<'_> {
-        TilePipelineGuard {
-            guard: self.cache.lock(),
-            request_tx: Arc::clone(&self.request_tx),
-        }
-    }
-
     /// Fetches the image id of `tile`, or starts loading the texture,
     /// returning None on this frame and subsequent frames until the asynchronous request finishes
-    pub fn get_tile(guard: &mut TilePipelineGuard, tile: TileId) -> Option<conrod_core::image::Id> {
+    pub fn get_tile(&mut self, tile: TileId) -> Option<conrod_core::image::Id> {
         //TODO: Have the caller pass the lock in so that we dont lock, unlock, then lock again
         {
-            match guard.guard.get(tile_coord_to_u64(tile)) {
+            match self.cache.get(tile_coord_to_u64(tile)) {
                 Some(&CachedTile::Cached(id)) => {
                     return Some(id);
                 }
@@ -87,12 +71,11 @@ impl TilePipeline {
             };
         }
         assert!(
-            guard.request_tx.send(tile).is_ok(),
+            self.request_tx.send(tile).is_ok(),
             "Tile request channel closed! Cannot fetch more tiles"
         );
 
-        guard
-            .guard
+        self.cache
             .insert(tile_coord_to_u64(tile), CachedTile::Pending);
         None
     }
@@ -128,7 +111,6 @@ impl TilePipeline {
         let start = std::time::Instant::now();
         let mut tiles_processed = 0;
 
-        let mut guard = self.cache.lock();
         while let Ok(tile) = self.upload_rx.try_recv() {
             let time_spent = start.elapsed();
             if time_spent > MAX_PROCESS_TIME {
@@ -143,19 +125,21 @@ impl TilePipeline {
 
             match tile.image {
                 None => {
-                    let _ = guard.insert(tile_coord_to_u64(tile_id), CachedTile::NotAvailable);
+                    let _ = self
+                        .cache
+                        .insert(tile_coord_to_u64(tile_id), CachedTile::NotAvailable);
                 }
                 Some(image) => {
                     let texture = create_texture(display, image);
                     let image_id = image_map.insert(texture);
 
                     let id = tile_coord_to_u64(tile_id);
-                    match guard.get_mut(id) {
+                    match self.cache.get_mut(id) {
                         Some(value) => {
                             *value = CachedTile::Cached(image_id);
                         }
                         None => {
-                            guard.insert(id, CachedTile::Cached(image_id));
+                            self.cache.insert(id, CachedTile::Cached(image_id));
                         }
                     }
 
