@@ -73,7 +73,7 @@ pub trait Backend: Send + Sync {
         }
         match result {
             Some(bytes) => {
-                let image = load_tile(bytes).await?; 
+                let image = load_tile(bytes).await?;
                 Ok(Some(image))
             }
             None => Ok(None),

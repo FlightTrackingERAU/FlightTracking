@@ -60,8 +60,7 @@ async fn plane_data_loop(list_of_planes: Arc<Mutex<Arc<Vec<Plane>>>>) {
                 let mut guard = list_of_planes.lock().unwrap();
                 *guard = Arc::new(plane_data);
             }
-            Err(_) => {
-            }
+            Err(_) => {}
         };
 
         let end = Instant::now();
