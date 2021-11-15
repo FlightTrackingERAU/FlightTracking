@@ -58,7 +58,7 @@ fn line_distance_for_viewport_degrees(world_range: f64, dimension_size: f64) -> 
         }
     }
     let power = (mapped_range / DISTANCE_SCALE).log10();
-    let part = power.rem_euclid(1.0); 
+    let part = power.rem_euclid(1.0);
     //We know the scale and where the number falls within the exponential range
     //so use math to find the correct spacing
 

@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use image::{GenericImageView, ImageBuffer, Rgba};
+use image::{ImageBuffer, Rgba};
 use simple_moving_average::{SumTreeSMA, SMA};
 
 use std::time::Duration;

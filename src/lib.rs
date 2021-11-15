@@ -255,7 +255,7 @@ pub fn run_app() {
                             map_data.tile_decode_time.as_secs_f64() * 1000.0,
                             map_data.tile_upload_time.as_secs_f64() * 1000.0
                         ));
- 
+
                         for (backend_name, time) in map_data.backend_request_secs {
                             draw_text(format_args!("  {} {:?}", backend_name, time,));
                         }
