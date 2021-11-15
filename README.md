@@ -1,2 +1,3 @@
-Flight Tracking for ERAU-SE300
+Flight Tracking
 
+![This is an image] (/assets/image/airplane-image.png)
