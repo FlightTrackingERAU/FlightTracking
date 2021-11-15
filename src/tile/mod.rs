@@ -60,11 +60,11 @@ pub fn pipelines(runtime: &Runtime) -> PipelineMap {
     };
     enum_map! {
         TileKind::Satellite => TilePipeline::new(vec![
-            Box::new(DiskCache::new(satellite_cache)),
+            Box::new(DiskCache::new(satellite_cache, false)),
             Box::new(SatelliteRequester::new(satellite_cache))
         ], runtime),
         TileKind::Weather => TilePipeline::new(vec![
-            Box::new(DiskCache::new(weather_cache)),
+            Box::new(DiskCache::new(weather_cache, true)),
             Box::new(WeatherRequester::new(weather_cache))
         ], runtime),
     }

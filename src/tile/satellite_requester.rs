@@ -48,4 +48,8 @@ impl Backend for SatelliteRequester {
     fn tile_size(&self) -> Option<u32> {
         Some(128)
     }
+
+    fn ignore_transparent_tiles(&self) -> bool {
+        false
+    }
 }
