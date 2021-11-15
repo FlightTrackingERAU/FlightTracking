@@ -140,6 +140,7 @@ pub fn draw(state: MapRendererState, ui: &mut UiCell<'_>) {
             }
 
             ids.resize(tiles.len(), &mut ui.widget_id_generator());
+            let mut guard = pipeline.lock();
 
             // The conrod coordinate system places 0, 0 in the center of the window. Up is the positive y
             // axis, and right is the positive x axis.
@@ -157,7 +158,7 @@ pub fn draw(state: MapRendererState, ui: &mut UiCell<'_>) {
 
                 let tile_id = TileId::new(tile.0, tile.1, zoom_level);
 
-                if let Some(tile) = pipeline.get_tile(tile_id) {
+                if let Some(tile) = TilePipeline::get_tile(&mut guard, tile_id) {
                     Image::new(tile)
                         .x_y(x, y)
                         .wh(size.to_array())

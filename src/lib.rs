@@ -22,6 +22,7 @@ pub use map::*;
 pub use map_renderer::*;
 pub use plane_renderer::*;
 pub use request_plane::*;
+use statrs::statistics::OrderStatistics;
 pub use tile::*;
 pub use ui_filter::*;
 pub use util::*;
@@ -41,6 +42,7 @@ widget_ids!(pub struct Ids {
     airplane_button,
     debug_button,
     airport_button,
+    bench_button,
     latitude_lines[],
     latitude_text[],
     longitude_lines[],
@@ -50,6 +52,7 @@ widget_ids!(pub struct Ids {
     planes[]
 });
 
+use std::fmt::Write;
 pub use util::MAP_PERF_DATA;
 
 /// The app's "main" function. Our real main inside `main.rs` calls this function
@@ -89,11 +92,15 @@ pub fn run_app() {
     let gear_icon_bytes = include_bytes!("../assets/images/gear-icon.png");
     let gear_id = return_image_essentials(&display, gear_icon_bytes, &mut image_map);
 
+
     let airport_icon_bytes = include_bytes!("../assets/images/airport-icon.png");
     let airport_id = return_image_essentials(&display, airport_icon_bytes, &mut image_map);
     //Making airport image ids that goes on button
     let airport_image_bytes = include_bytes!("../assets/images/airport-image.png");
     let airport_image_id = return_image_essentials(&display, airport_image_bytes, &mut image_map);
+  
+    let bench_icon_bytes = include_bytes!("../assets/images/bench-icon.png");
+    let bench_id = return_image_essentials(&display, bench_icon_bytes, &mut image_map);
 
     let noto_sans_ttf = include_bytes!("../assets/fonts/NotoSans/NotoSans-Regular.ttf");
     let noto_sans = Font::from_bytes(noto_sans_ttf).expect("Failed to decode font");
@@ -121,13 +128,18 @@ pub fn run_app() {
     let mut last_cursor_pos: Option<DVec2> = None;
     let mut left_pressed = false;
 
-    let mut weather_enabled = false;
+    let mut weather_enabled = true;
     let mut debug_enabled = true;
+
     let mut filter_enabled: bool = false;
     let mut airport_enabled: bool = true;
     let mut show_airline = Airlines::All;
+
+
+
     let mut last_fps_print = Instant::now();
     let mut frame_counter = 0;
+    let mut frame_times: Option<(Vec<f64>, Instant)> = None;
 
     event_loop.run(move |event, _, control_flow| {
         use glium::glutin::event::{
@@ -234,45 +246,17 @@ pub fn run_app() {
                             guard.snapshot()
                         };
 
-                        let mut debug_text = vec![
-                            format!(
-                                "FT: {:.2}, FPS: {}",
-                                frame_time_ms,
-                                (1000.0 / frame_time_ms) as u32
-                            ),
-                            format!(
-                                "Zoom: {}, Tiles: {}",
-                                map_data.zoom, map_data.tiles_rendered
-                            ),
-                            format!(
-                                "Decode: {:.2}ms, Upload: {:.2}ms",
-                                map_data.tile_decode_time.as_secs_f64() * 1000.0,
-                                map_data.tile_upload_time.as_secs_f64() * 1000.0
-                            ),
-                        ];
-                        for (backend_name, time) in map_data.backend_request_secs {
-                            debug_text.push(format!(
-                                " {}: {:.2}ms",
-                                backend_name,
-                                time.as_secs_f64() * 1000.0
-                            ));
-                        }
-                        for (name, data) in perf_data {
-                            let samples = data.get_samples();
-                            let text = if samples.len() == 1 {
-                                format!("{}: {:?}", name, samples[0])
-                            } else {
-                                let avg: Duration =
-                                    samples.iter().sum::<Duration>() / samples.len() as u32;
-                                format!("{}: {} times, {:?} avg", name, samples.len(), avg)
-                            };
-                            debug_text.push(text);
-                        }
-                        ids.debug_menu
-                            .resize(debug_text.len(), &mut ui.widget_id_generator());
+                        let debug_lines = 4 + map_data.backend_request_secs.len() + perf_data.len();
 
-                        for (i, text) in debug_text.iter().enumerate() {
-                            let gui_text = widget::Text::new(text.as_str())
+                        let mut i = 0;
+                        let mut buf: util::StringFormatter<512> = util::StringFormatter::new();
+                        ids.debug_menu
+                            .resize(debug_lines, &mut ui.widget_id_generator());
+
+                        let mut draw_text = |args: std::fmt::Arguments<'_>| {
+                            buf.clear();
+                            buf.write_fmt(args).unwrap();
+                            let gui_text = widget::Text::new(buf.as_str())
                                 .color(conrod_core::color::WHITE)
                                 .left_justify()
                                 .font_size(8)
@@ -282,6 +266,42 @@ pub fn run_app() {
                             let x = -ui.win_w / 2.0 + width / 2.0 + 4.0;
                             let y = ui.win_h / 2.0 - 8.0 - i as f64 * 11.0;
                             gui_text.x_y(x, y).set(ids.debug_menu[i], ui);
+                            i += 1;
+                            assert!(i <= debug_lines);
+                        };
+
+                        draw_text(format_args!(
+                            "FT: {:.2}, FPS: {}",
+                            frame_time_ms,
+                            (1000.0 / frame_time_ms) as u32
+                        ));
+                        draw_text(format_args!(
+                            "Zoom: {}, Tiles: {}",
+                            map_data.zoom, map_data.tiles_rendered
+                        ));
+                        draw_text(format_args!(
+                            "Decode: {:.2}ms, Upload: {:.2}ms",
+                            map_data.tile_decode_time.as_secs_f64() * 1000.0,
+                            map_data.tile_upload_time.as_secs_f64() * 1000.0
+                        ));
+
+                        for (backend_name, time) in map_data.backend_request_secs {
+                            draw_text(format_args!("  {} {:?}", backend_name, time,));
+                        }
+                        for (name, data) in perf_data {
+                            let samples = data.get_samples();
+                            if samples.len() == 1 {
+                                draw_text(format_args!("{}: {:?}", name, samples[0]));
+                            } else {
+                                let avg: Duration =
+                                    samples.iter().sum::<Duration>() / samples.len() as u32;
+                                draw_text(format_args!(
+                                    "{}: {} times, {:?} avg",
+                                    name,
+                                    samples.len(),
+                                    avg
+                                ));
+                            };
                         }
                     }
                     //========== Draw Buttons ==========
@@ -393,13 +413,42 @@ pub fn run_app() {
                             show_airline = Airlines::All
                         }
                     }
+                        widget_y_position,
+                    );
+
+                    if button_widget::draw_circle_with_image(
+                        ids.bench_button,
+                        ui,
+                        bench_id,
+                        widget_x_position,
+                        widget_y_position - 210.0,
+                    ) {
+                        let now = Instant::now();
+                        match frame_times.take() {
+                            Some((vec, start)) => {
+                                println!("Captured {} samples over {:?}", vec.len(), now - start);
+                                let mut data = statrs::statistics::Data::new(vec);
+                                println!("  1st  percentile: {:.2}ms", data.percentile(1));
+                                println!("  5th  percentile: {:.2}ms", data.percentile(5));
+                                println!("  Mean FT:         {:.2}ms", data.percentile(50));
+                                println!("  95th percentile: {:.2}ms", data.percentile(95));
+                                println!("  99th percentile: {:.2}ms", data.percentile(99));
+                                frame_times = None;
+                            }
+                            None => {
+                                frame_times = Some((Vec::new(), now));
+                                println!("Starting frame profiler");
+                            }
+                        }
+                    }
 
                     scope_render_buttons.end();
 
                     frame_counter += 1;
                     let now = Instant::now();
                     if now - last_fps_print >= Duration::from_secs(1) {
-                        println!("FPS: {}", frame_counter);
+                        let _ = frame_counter;
+                        //println!("FPS: {}", frame_counter);
                         last_fps_print = now;
                         frame_counter = 0;
                     }
@@ -407,6 +456,9 @@ pub fn run_app() {
                     //Time calculations
                     let now = std::time::Instant::now();
                     frame_time_ms = (now - last_time).as_nanos() as f64 / 1_000_000.0;
+                    if let Some((vec, _)) = &mut frame_times {
+                        vec.push(frame_time_ms);
+                    }
                     last_time = now;
 
                     display.gl_window().window().request_redraw();
