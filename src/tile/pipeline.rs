@@ -66,7 +66,7 @@ impl TilePipeline {
         }
     }
 
-    pub fn lock<'a>(&'a self) -> TilePipelineGuard<'a> {
+    pub fn lock(&self) -> TilePipelineGuard<'_> {
         TilePipelineGuard {
             guard: self.cache.lock(),
             request_tx: Arc::clone(&self.request_tx),

@@ -1,12 +1,25 @@
+use std::mem::MaybeUninit;
+
 pub struct StringFormatter<const N: usize> {
     buf: [u8; N],
     index: usize,
 }
 
+impl<const N: usize> Default for StringFormatter<N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<const N: usize> StringFormatter<N> {
     pub fn new() -> Self {
+        let buf = MaybeUninit::uninit();
         Self {
-            buf: [0u8; N],
+            // # Safety:
+            // 
+            // We never read up to self.index bytes out of buf, which are guaranteed to be written
+            // to before reading. These are simply bytes which can have any value
+            buf: unsafe { buf.assume_init() },
             index: 0,
         }
     }
@@ -15,7 +28,7 @@ impl<const N: usize> StringFormatter<N> {
         self.index = 0;
     }
 
-    pub fn as_str<'s>(&'s self) -> &'s str {
+    pub fn as_str(&self) -> &str {
         // # Safety
         //
         // 1. `self.buf` is guaranteed to be valid for writes in range `0..self.index` by the
