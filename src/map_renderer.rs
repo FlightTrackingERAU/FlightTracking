@@ -217,7 +217,7 @@ pub fn draw_lat_long(
     for i in 0..lat_lines {
         let lat = lat_start - i as f64 * lat_line_distance;
         let world_y = crate::util::y_from_latitude(lat);
-        let y_pixel = world_y_to_pixel_y(world_y, &viewport, ui.win_h);
+        let y_pixel = world_y_to_pixel_y(world_y, viewport, ui.win_h);
 
         let half_width = ui.win_w / 2.0;
         Line::new([-half_width, y_pixel], [half_width, y_pixel])
@@ -273,7 +273,7 @@ pub fn draw_lat_long(
     for i in 0..lng_lines {
         let lng = lng_start + i as f64 * lng_line_distance;
         let world_x = x_start + i as f64 * line_distance_world;
-        let x_pixel = world_x_to_pixel_x(world_x, &viewport, ui.win_w);
+        let x_pixel = world_x_to_pixel_x(world_x, viewport, ui.win_w);
 
         let half_height = ui.win_h / 2.0;
         Line::new([x_pixel, -half_height], [x_pixel, half_height])
