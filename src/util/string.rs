@@ -16,7 +16,7 @@ impl<const N: usize> StringFormatter<N> {
         let buf = MaybeUninit::uninit();
         Self {
             // # Safety:
-            // 
+            //
             // We never read up to self.index bytes out of buf, which are guaranteed to be written
             // to before reading. These are simply bytes which can have any value
             buf: unsafe { buf.assume_init() },
