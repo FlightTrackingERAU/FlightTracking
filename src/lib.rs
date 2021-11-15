@@ -1,9 +1,9 @@
+use std::io::Cursor;
 use std::time::{Duration, Instant};
 
 use conrod_core::{text::Font, widget, widget_ids, Colorable, Positionable, Sizeable, Widget};
-//use conrod_core::{text::Font, widget, widget_ids, Colorable, Positionable, Sizeable, Widget};
 use glam::DVec2;
-use glium::Surface;
+use glium::{implement_vertex, uniform, Surface};
 
 mod airports;
 mod button_widget;
@@ -28,6 +28,7 @@ pub use util::*;
 
 const WIDTH: u32 = 1280;
 const HEIGHT: u32 = 720;
+const MAX_ZOOM_LEVEL: u32 = 20;
 
 widget_ids!(pub struct Ids {
     debug_menu[],
@@ -46,17 +47,29 @@ widget_ids!(pub struct Ids {
     longitude_text[],
     filer_button[],
     airports[],
-    planes[]
+    planes[],
+    square
 });
 
 pub use util::MAP_PERF_DATA;
+
+#[derive(Copy, Clone)]
+pub struct Vertex {
+    pub position: [f32; 2],
+    pub angle: f32,
+    pub offset: [f32; 2],
+    pub dpi_factor: f32,
+    pub tex_coords: [f32; 2],
+}
+
+implement_vertex!(Vertex, position, angle, offset, dpi_factor, tex_coords); // don't forget to add `tex_coords` here
 
 /// The app's "main" function. Our real main inside `main.rs` calls this function
 pub fn run_app() {
     // Create our UI's event loop
     let event_loop = glium::glutin::event_loop::EventLoop::new();
     let window = glium::glutin::window::WindowBuilder::new()
-        .with_title("Conrod Window")
+        .with_title("Flight Tracker")
         .with_inner_size(glium::glutin::dpi::LogicalSize::new(WIDTH, HEIGHT));
 
     let context = glium::glutin::ContextBuilder::new()
@@ -65,16 +78,18 @@ pub fn run_app() {
 
     let display = glium::Display::new(window, context, &event_loop).unwrap();
 
-    let mut ui = conrod_core::UiBuilder::new([WIDTH as f64, HEIGHT as f64]).build();
+    let mut map_ui = conrod_core::UiBuilder::new([WIDTH as f64, HEIGHT as f64]).build();
+    let mut overlay_ui = conrod_core::UiBuilder::new([WIDTH as f64, HEIGHT as f64]).build();
 
     // Generate our widget identifiers
-    let mut ids = Ids::new(ui.widget_id_generator());
+    let mut map_ids = Ids::new(map_ui.widget_id_generator());
+    let mut overlay_ids = Ids::new(overlay_ui.widget_id_generator());
 
     let mut image_map: conrod_core::image::Map<glium::Texture2d> = conrod_core::image::Map::new();
 
     //Making airplane image ids
     let airplane_image_bytes = include_bytes!("../assets/images/airplane-icon.png");
-    let airplane_ids = return_image_essentials(&display, airplane_image_bytes, &mut image_map);
+    let airplane_id = return_image_essentials(&display, airplane_image_bytes, &mut image_map);
 
     let weather_image_bytes = include_bytes!("../assets/images/weather-icon.png");
     let weather_id = return_image_essentials(&display, weather_image_bytes, &mut image_map);
@@ -84,13 +99,15 @@ pub fn run_app() {
 
     let noto_sans_ttf = include_bytes!("../assets/fonts/NotoSans/NotoSans-Regular.ttf");
     let noto_sans = Font::from_bytes(noto_sans_ttf).expect("Failed to decode font");
-    let _noto_sans = ui.fonts.insert(noto_sans);
+    let _noto_sans = overlay_ui.fonts.insert(noto_sans);
 
     let b612_ttf = include_bytes!("../assets/fonts/B612Mono/B612Mono-Regular.ttf");
     let b612 = Font::from_bytes(b612_ttf).expect("Failed to decode font");
-    let b612 = ui.fonts.insert(b612);
+    let b612_overlay = overlay_ui.fonts.insert(b612.clone());
+    let b612_map = map_ui.fonts.insert(b612);
 
-    let mut renderer = conrod_glium::Renderer::new(&display).unwrap();
+    let mut map_renderer = conrod_glium::Renderer::new(&display).unwrap();
+    let mut overlay_renderer = conrod_glium::Renderer::new(&display).unwrap();
 
     let mut last_time = std::time::Instant::now();
     let mut frame_time_ms = 0.0;
@@ -112,6 +129,72 @@ pub fn run_app() {
     let mut debug_enabled = true;
     let mut last_fps_print = Instant::now();
     let mut frame_counter = 0;
+
+    let image = image::load(
+        Cursor::new(&include_bytes!("../assets/images/airplane-image.png")),
+        image::ImageFormat::PNG,
+    )
+    .unwrap()
+    .to_rgba();
+    let image_dimensions = image.dimensions();
+
+    let image =
+        glium::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
+
+    let texture = glium::texture::SrgbTexture2d::new(&display, image).unwrap();
+
+    let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
+
+    let vertex_shader_src = r#"
+        #version 140
+
+        in vec2 position;
+        in float angle;
+        in vec2 offset;
+        in float dpi_factor;
+        in vec2 tex_coords;
+        out vec2 v_tex_coords;
+
+        uniform mat4 matrix;
+
+        void main() {
+            v_tex_coords = tex_coords;
+            vec2 pos = position;
+            vec2 new_position = vec2(pos.x * cos(angle) - pos.y * sin(angle), pos.x * sin(angle) + pos.y * cos(angle));
+            vec4 scaled = matrix * vec4(new_position, 0.0, 1.0);
+            vec4 with_offset = vec4(offset * dpi_factor, 0.0, 0.0) + scaled;
+            gl_Position = with_offset;
+        }
+    "#;
+
+    let fragment_shader_src = r#"
+        #version 140
+
+        in vec2 v_tex_coords;
+        out vec4 color;
+
+        uniform sampler2D tex;
+
+        void main() {
+            color = texture(tex, v_tex_coords);
+        }
+    "#;
+
+    let program =
+        glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None)
+            .unwrap();
+    let draw_parameters = glium::draw_parameters::DrawParameters {
+        blend: glium::draw_parameters::Blend::alpha_blending(),
+        ..glium::draw_parameters::DrawParameters::default()
+    };
+
+    overlay_ids
+        .filer_button
+        .resize(4, &mut overlay_ui.widget_id_generator());
+
+    let mut t: f32 = 0.0;
+
+    let mut vertices = Vec::new();
 
     event_loop.run(move |event, _, control_flow| {
         use glium::glutin::event::{
@@ -160,7 +243,8 @@ pub fn run_app() {
 
         // Use the `winit` backend feature to convert the winit event to a conrod one.
         if let Some(event) = support::convert_event(&event, display.gl_window().window()) {
-            ui.handle_event(event);
+            map_ui.handle_event(event.clone());
+            overlay_ui.handle_event(event);
             should_update_ui = true;
         }
 
@@ -170,9 +254,10 @@ pub fn run_app() {
                     // should_update_ui = false;
 
                     // Set the widgets.
-                    let mut ui = ui.set_widgets();
-                    let ui = &mut ui;
-                    ids.filer_button.resize(4, &mut ui.widget_id_generator());
+                    let mut map_ui = map_ui.set_widgets();
+                    let map_ui = &mut map_ui;
+                    let mut overlay_ui = overlay_ui.set_widgets();
+                    let overlay_ui = &mut overlay_ui;
 
                     //========== Draw Map ==========
                     {
@@ -181,18 +266,21 @@ pub fn run_app() {
                             view: &viewer,
                             display: &display,
                             image_map: &mut image_map,
-                            ids: &mut ids,
+                            ids: &mut map_ids,
                             weather_enabled,
                         };
-                        map_renderer::draw(map_state, ui);
+                        map_renderer::draw(map_state, map_ui, b612_map);
                     }
 
                     //========== Draw Airports ==========
 
-                    airports::airport_renderer::draw(&airports, &viewer, &display, &mut ids, ui);
-
-                    //=========Draw Plane============
-                    plane_renderer::draw(&mut plane_requester, &viewer, &mut ids, airplane_ids, ui);
+                    airports::airport_renderer::draw(
+                        &airports,
+                        &viewer,
+                        &display,
+                        &mut map_ids,
+                        map_ui,
+                    );
 
                     //========== Draw Debug Data ==========
 
@@ -243,31 +331,34 @@ pub fn run_app() {
                             };
                             debug_text.push(text);
                         }
-                        ids.debug_menu
-                            .resize(debug_text.len(), &mut ui.widget_id_generator());
+                        overlay_ids
+                            .debug_menu
+                            .resize(debug_text.len(), &mut overlay_ui.widget_id_generator());
 
                         for (i, text) in debug_text.iter().enumerate() {
                             let gui_text = widget::Text::new(text.as_str())
                                 .color(conrod_core::color::WHITE)
                                 .left_justify()
                                 .font_size(8)
-                                .font_id(b612);
+                                .font_id(b612_overlay);
 
-                            let width = gui_text.get_w(ui).unwrap();
-                            let x = -ui.win_w / 2.0 + width / 2.0 + 4.0;
-                            let y = ui.win_h / 2.0 - 8.0 - i as f64 * 11.0;
-                            gui_text.x_y(x, y).set(ids.debug_menu[i], ui);
+                            let width = gui_text.get_w(overlay_ui).unwrap();
+                            let x = -overlay_ui.win_w / 2.0 + width / 2.0 + 4.0;
+                            let y = overlay_ui.win_h / 2.0 - 8.0 - i as f64 * 11.0;
+                            gui_text
+                                .x_y(x, y)
+                                .set(overlay_ids.debug_menu[i], overlay_ui);
                         }
                     }
                     //========== Draw Buttons ==========
                     let scope_render_buttons = crate::profile_scope("Render Buttons");
 
-                    let widget_x_position = (ui.win_w / 2.0) * 0.95 - 25.0;
-                    let widget_y_position = (ui.win_h / 2.0) * 0.90;
+                    let widget_x_position = (overlay_ui.win_w / 2.0) * 0.95 - 25.0;
+                    let widget_y_position = (overlay_ui.win_h / 2.0) * 0.90;
 
                     if button_widget::draw_circle_with_image(
-                        ids.weather_button,
-                        ui,
+                        overlay_ids.weather_button,
+                        overlay_ui,
                         weather_id,
                         widget_x_position,
                         widget_y_position - 70.0,
@@ -276,8 +367,8 @@ pub fn run_app() {
                     }
 
                     if button_widget::draw_circle_with_image(
-                        ids.debug_button,
-                        ui,
+                        overlay_ids.debug_button,
+                        overlay_ui,
                         gear_id,
                         widget_x_position,
                         widget_y_position - 140.0,
@@ -286,40 +377,40 @@ pub fn run_app() {
                     }
 
                     button_widget::draw_circle_with_image(
-                        ids.airplane_button,
-                        ui,
-                        airplane_ids,
+                        overlay_ids.airplane_button,
+                        overlay_ui,
+                        airplane_id,
                         widget_x_position,
                         widget_y_position,
                     );
 
                     ui_filter::draw(
-                        ids.filer_button[0],
-                        ui,
+                        overlay_ids.filer_button[0],
+                        overlay_ui,
                         String::from("American Airlines"),
                         widget_x_position - 130.0,
                         widget_y_position,
                     );
 
                     ui_filter::draw(
-                        ids.filer_button[1],
-                        ui,
+                        overlay_ids.filer_button[1],
+                        overlay_ui,
                         String::from("Spirit"),
                         widget_x_position - 130.0,
                         widget_y_position - 40.0,
                     );
 
                     ui_filter::draw(
-                        ids.filer_button[2],
-                        ui,
+                        overlay_ids.filer_button[2],
+                        overlay_ui,
                         String::from("Southwest"),
                         widget_x_position - 130.0,
                         widget_y_position - 80.0,
                     );
 
                     ui_filter::draw(
-                        ids.filer_button[3],
-                        ui,
+                        overlay_ids.filer_button[3],
+                        overlay_ui,
                         String::from("United"),
                         widget_x_position - 130.0,
                         widget_y_position - 120.0,
@@ -344,12 +435,69 @@ pub fn run_app() {
             }
             glium::glutin::event::Event::RedrawRequested(_) => {
                 //render and swap buffers
-                let primitives = ui.draw();
+                let map_primitives = map_ui.draw();
+                let overlay_primitives = overlay_ui.draw();
 
-                renderer.fill(&display, primitives, &image_map);
                 let mut target = display.draw();
                 target.clear_color(0.21, 0.32, 0.4, 1.0);
-                renderer.draw(&display, &mut target, &image_map).unwrap();
+
+                map_renderer.fill(&display, map_primitives, &image_map);
+                map_renderer
+                    .draw(&display, &mut target, &image_map)
+                    .unwrap();
+
+                // we update `t`
+                t += 0.002;
+                if t > std::f32::consts::TAU {
+                    t = 0.0;
+                }
+
+                let (width, height) = target.get_dimensions();
+                let dpi_factor = display.gl_window().window().scale_factor() as f32;
+
+                //=========Draw Planes============
+
+                plane_renderer::draw(
+                    &mut plane_requester,
+                    &viewer,
+                    width as f64,
+                    height as f64,
+                    dpi_factor,
+                    &mut vertices,
+                );
+
+                let vertex_buffer = glium::VertexBuffer::new(&display, &vertices).unwrap();
+
+                let aspect_ratio = height as f32 / width as f32;
+                let scale_factor = (50.0 / height as f32) * dpi_factor;
+
+                let matrix: [[f32; 4]; 4] = cgmath::Matrix4::from_nonuniform_scale(
+                    aspect_ratio * scale_factor,
+                    scale_factor,
+                    1.0,
+                )
+                .into();
+
+                let uniforms = uniform! {
+                    matrix: matrix,
+                    tex: &texture,
+                };
+
+                target
+                    .draw(
+                        &vertex_buffer,
+                        &indices,
+                        &program,
+                        &uniforms,
+                        &draw_parameters,
+                    )
+                    .unwrap();
+
+                overlay_renderer.fill(&display, overlay_primitives, &image_map);
+                overlay_renderer
+                    .draw(&display, &mut target, &image_map)
+                    .unwrap();
+
                 target.finish().unwrap();
             }
             _ => {}
@@ -357,8 +505,8 @@ pub fn run_app() {
     })
 }
 
-//Function to return the Id for images
-//Must convert image path to bytes
+// Function to return the Id for images
+// Must convert image path to bytes
 fn return_image_essentials(
     display: &glium::Display,
     bytes: &[u8],
@@ -372,6 +520,7 @@ fn return_image_essentials(
         press: image_map.insert(load_image(display, bytes)),
     }
 }
+
 // Load an image from our assets folder as a texture we can draw to the screen.
 fn load_image(display: &glium::Display, bytes: &[u8]) -> glium::texture::Texture2d {
     let rgba_image = image::load_from_memory(bytes).unwrap().to_rgba();

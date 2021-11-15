@@ -23,6 +23,7 @@ num = "0.4"
 lazy_static = "1.0"
 find_folder =  "0.3"
 rand = "0.8"
+cgmath = "0.18.0"
 
 async-trait = "0.1"
 thiserror = "1.0"

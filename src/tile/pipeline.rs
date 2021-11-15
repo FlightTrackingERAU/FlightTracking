@@ -1,8 +1,6 @@
 use super::*;
 use crate::{TileId, WorldViewport};
 
-use parking_lot::Mutex;
-
 use simple_moving_average::SMA;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc::{Receiver, Sender, UnboundedReceiver, UnboundedSender};
@@ -26,7 +24,7 @@ pub struct TilePipeline {
     /// The cache of tiles on the GPU
     // Use a blocking mutex here because contention is low, and the critical section is short
     //cache: Mutex<IntMap<CachedTile>>,
-    cache: Mutex<HashMap<TileId, CachedTile>>,
+    cache: HashMap<TileId, CachedTile>,
     upload_rx: Receiver<MemoryTile>,
     request_tx: UnboundedSender<TileId>,
     tile_size: AtomicU32,
@@ -52,7 +50,7 @@ impl TilePipeline {
         runtime.spawn(tile_requester(upload_tx, request_rx, backends.clone()));
         Self {
             //cache: Mutex::new(IntMap::with_capacity(1024)),
-            cache: Mutex::new(HashMap::with_capacity(1024)),
+            cache: HashMap::with_capacity(1024),
             upload_rx,
             request_tx,
             backends,
@@ -64,17 +62,13 @@ impl TilePipeline {
     /// returning None on this frame and subsequent frames until the asynchronous request finishes
     pub fn get_tile(&mut self, tile: TileId) -> Option<conrod_core::image::Id> {
         //TODO: Have the caller pass the lock in so that we dont lock, unlock, then lock again
-        {
-            let guard = self.cache.lock();
-            //match guard.get(tile_coord_to_u64(tile)) {
-            match guard.get(&tile) {
-                Some(&CachedTile::Cached(id)) => {
-                    //println!("Got tile for {:?}", id);
-                    return Some(id);
-                }
-                Some(&CachedTile::Pending) => return None,
-                None => {}
-            };
+        match self.cache.get(&tile) {
+            Some(&CachedTile::Cached(id)) => {
+                //println!("Got tile for {:?}", id);
+                return Some(id);
+            }
+            Some(&CachedTile::Pending) => return None,
+            None => {}
         }
         assert!(
             self.request_tx.send(tile).is_ok(),
@@ -138,9 +132,7 @@ impl TilePipeline {
     }
 
     fn set_cached_tile(&mut self, tile: TileId, cached_tile: CachedTile) {
-        let mut guard = self.cache.lock();
-        //guard.insert(tile_coord_to_u64(tile), cached_tile);
-        guard.insert(tile, cached_tile);
+        self.cache.insert(tile, cached_tile);
     }
 }
 
