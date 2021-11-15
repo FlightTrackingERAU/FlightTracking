@@ -1,9 +1,8 @@
-use std::io::Cursor;
 use std::time::{Duration, Instant};
 
 use conrod_core::{text::Font, widget, widget_ids, Colorable, Positionable, Sizeable, Widget};
 use glam::DVec2;
-use glium::{implement_vertex, uniform, Surface};
+use glium::Surface;
 
 mod airports;
 mod button_widget;
@@ -56,17 +55,6 @@ widget_ids!(pub struct Ids {
 use std::fmt::Write;
 pub use util::MAP_PERF_DATA;
 
-#[derive(Copy, Clone)]
-pub struct Vertex {
-    pub position: [f32; 2],
-    pub angle: f32,
-    pub offset: [f32; 2],
-    pub dpi_factor: f32,
-    pub tex_coords: [f32; 2],
-}
-
-implement_vertex!(Vertex, position, angle, offset, dpi_factor, tex_coords); // don't forget to add `tex_coords` here
-
 /// The app's "main" function. Our real main inside `main.rs` calls this function
 pub fn run_app() {
     // Create our UI's event loop
@@ -90,7 +78,7 @@ pub fn run_app() {
 
     let mut image_map: conrod_core::image::Map<glium::Texture2d> = conrod_core::image::Map::new();
 
-    //Making airplane image ids
+    // Making airplane image ids
     let airplane_image_bytes = include_bytes!("../assets/images/airplane-icon.png");
     let airplane_id = return_image_essentials(&display, airplane_image_bytes, &mut image_map);
 
@@ -114,6 +102,7 @@ pub fn run_app() {
 
     let mut map_renderer = conrod_glium::Renderer::new(&display).unwrap();
     let mut overlay_renderer = conrod_glium::Renderer::new(&display).unwrap();
+    let mut plane_renderer = PlaneRenderer::new(&display);
 
     let mut last_time = std::time::Instant::now();
     let mut frame_time_ms = 0.0;
@@ -138,71 +127,9 @@ pub fn run_app() {
     let mut frame_counter = 0;
     let mut frame_times: Option<(Vec<f64>, Instant)> = None;
 
-    let image = image::load(
-        Cursor::new(&include_bytes!("../assets/images/airplane-image.png")),
-        image::ImageFormat::PNG,
-    )
-    .unwrap()
-    .to_rgba();
-    let image_dimensions = image.dimensions();
-
-    let image =
-        glium::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
-
-    let texture = glium::texture::SrgbTexture2d::new(&display, image).unwrap();
-
-    let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
-
-    let vertex_shader_src = r#"
-        #version 140
-
-        in vec2 position;
-        in float angle;
-        in vec2 offset;
-        in float dpi_factor;
-        in vec2 tex_coords;
-        out vec2 v_tex_coords;
-
-        uniform mat4 matrix;
-
-        void main() {
-            v_tex_coords = tex_coords;
-            vec2 pos = position;
-            vec2 new_position = vec2(pos.x * cos(angle) - pos.y * sin(angle), pos.x * sin(angle) + pos.y * cos(angle));
-            vec4 scaled = matrix * vec4(new_position, 0.0, 1.0);
-            vec4 with_offset = vec4(offset * dpi_factor, 0.0, 0.0) + scaled;
-            gl_Position = with_offset;
-        }
-    "#;
-
-    let fragment_shader_src = r#"
-        #version 140
-
-        in vec2 v_tex_coords;
-        out vec4 color;
-
-        uniform sampler2D tex;
-
-        void main() {
-            color = texture(tex, v_tex_coords);
-        }
-    "#;
-
-    let program =
-        glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None)
-            .unwrap();
-    let draw_parameters = glium::draw_parameters::DrawParameters {
-        blend: glium::draw_parameters::Blend::alpha_blending(),
-        ..glium::draw_parameters::DrawParameters::default()
-    };
-
     overlay_ids
         .filer_button
         .resize(4, &mut overlay_ui.widget_id_generator());
-
-    let mut t: f32 = 0.0;
-
-    let mut vertices = Vec::new();
 
     event_loop.run(move |event, _, control_flow| {
         use glium::glutin::event::{
@@ -492,52 +419,11 @@ pub fn run_app() {
                     .draw(&display, &mut target, &image_map)
                     .unwrap();
 
-                // we update `t`
-                t += 0.002;
-                if t > std::f32::consts::TAU {
-                    t = 0.0;
-                }
-
-                let (width, height) = target.get_dimensions();
-                let dpi_factor = display.gl_window().window().scale_factor() as f32;
-
                 //=========Draw Planes============
 
-                plane_renderer::draw(
-                    &mut plane_requester,
-                    &viewer,
-                    width as f64,
-                    height as f64,
-                    dpi_factor,
-                    &mut vertices,
-                );
+                plane_renderer.draw(&display, &mut target, &mut plane_requester, &viewer);
 
-                let vertex_buffer = glium::VertexBuffer::new(&display, &vertices).unwrap();
-
-                let aspect_ratio = height as f32 / width as f32;
-                let scale_factor = (50.0 / height as f32) * dpi_factor;
-
-                let matrix: [[f32; 4]; 4] = cgmath::Matrix4::from_nonuniform_scale(
-                    aspect_ratio * scale_factor,
-                    scale_factor,
-                    1.0,
-                )
-                .into();
-
-                let uniforms = uniform! {
-                    matrix: matrix,
-                    tex: &texture,
-                };
-
-                target
-                    .draw(
-                        &vertex_buffer,
-                        &indices,
-                        &program,
-                        &uniforms,
-                        &draw_parameters,
-                    )
-                    .unwrap();
+                //=========Draw Overlay===========
 
                 overlay_renderer.fill(&display, overlay_primitives, &image_map);
                 overlay_renderer
