@@ -92,13 +92,12 @@ pub fn run_app() {
     let gear_icon_bytes = include_bytes!("../assets/images/gear-icon.png");
     let gear_id = return_image_essentials(&display, gear_icon_bytes, &mut image_map);
 
-
     let airport_icon_bytes = include_bytes!("../assets/images/airport-icon.png");
     let airport_id = return_image_essentials(&display, airport_icon_bytes, &mut image_map);
     //Making airport image ids that goes on button
     let airport_image_bytes = include_bytes!("../assets/images/airport-image.png");
     let airport_image_id = return_image_essentials(&display, airport_image_bytes, &mut image_map);
-  
+
     let bench_icon_bytes = include_bytes!("../assets/images/bench-icon.png");
     let bench_id = return_image_essentials(&display, bench_icon_bytes, &mut image_map);
 
@@ -134,8 +133,6 @@ pub fn run_app() {
     let mut filter_enabled: bool = false;
     let mut airport_enabled: bool = true;
     let mut show_airline = Airlines::All;
-
-
 
     let mut last_fps_print = Instant::now();
     let mut frame_counter = 0;
@@ -413,15 +410,13 @@ pub fn run_app() {
                             show_airline = Airlines::All
                         }
                     }
-                        widget_y_position,
-                    );
 
                     if button_widget::draw_circle_with_image(
                         ids.bench_button,
                         ui,
                         bench_id,
                         widget_x_position,
-                        widget_y_position - 210.0,
+                        widget_y_position - 280.0,
                     ) {
                         let now = Instant::now();
                         match frame_times.take() {

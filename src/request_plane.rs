@@ -114,11 +114,11 @@ async fn plane_data_loop(list_of_planes: Arc<Mutex<Arc<PlaneAirlines>>>) {
             Err(error) => {
                 println!("Error at getting plane data: {:?}", error)
             }
+        }
 
         if let Ok(plane_data) = request_plane_data().await {
             let mut guard = list_of_planes.lock().unwrap();
             *guard = Arc::new(plane_data);
-
         };
 
         let end = Instant::now();
