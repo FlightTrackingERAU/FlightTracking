@@ -61,7 +61,6 @@ async fn plane_data_loop(list_of_planes: Arc<Mutex<Arc<Vec<Plane>>>>) {
                 *guard = Arc::new(plane_data);
             }
             Err(_) => {
-                println!("Error at getting plane data")
             }
         };
 

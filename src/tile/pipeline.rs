@@ -7,7 +7,7 @@ use simple_moving_average::SMA;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc::{Receiver, Sender, UnboundedReceiver, UnboundedSender};
 
-use std::collections::HashMap;
+use intmap::IntMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -26,7 +26,7 @@ pub struct TilePipeline {
     /// The cache of tiles on the GPU
     // Use a blocking mutex here because contention is low, and the critical section is short
     //cache: Mutex<IntMap<CachedTile>>,
-    cache: Mutex<HashMap<TileId, CachedTile>>,
+    cache: Mutex<IntMap<CachedTile>>,
     upload_rx: Receiver<MemoryTile>,
     request_tx: Arc<UnboundedSender<TileId>>,
     tile_size: AtomicU32,
@@ -41,7 +41,7 @@ enum CachedTile {
 
 pub struct TilePipelineGuard<'a> {
     request_tx: Arc<UnboundedSender<TileId>>,
-    guard: parking_lot::MutexGuard<'a, HashMap<TileId, CachedTile>>,
+    guard: parking_lot::MutexGuard<'a, IntMap<CachedTile>>,
 }
 
 impl TilePipeline {
@@ -57,8 +57,7 @@ impl TilePipeline {
         let backends = Arc::new(backends);
         runtime.spawn(tile_requester(upload_tx, request_rx, backends.clone()));
         Self {
-            //cache: Mutex::new(IntMap::with_capacity(1024)),
-            cache: Mutex::new(HashMap::with_capacity(1024)),
+            cache: Mutex::new(IntMap::with_capacity(1024)),
             upload_rx,
             request_tx: Arc::new(request_tx),
             backends,
@@ -78,10 +77,8 @@ impl TilePipeline {
     pub fn get_tile(guard: &mut TilePipelineGuard, tile: TileId) -> Option<conrod_core::image::Id> {
         //TODO: Have the caller pass the lock in so that we dont lock, unlock, then lock again
         {
-            //match guard.get(tile_coord_to_u64(tile)) {
-            match guard.guard.get(&tile) {
+            match guard.guard.get(tile_coord_to_u64(tile)) {
                 Some(&CachedTile::Cached(id)) => {
-                    //println!("Got tile for {:?}", id);
                     return Some(id);
                 }
                 Some(&CachedTile::NotAvailable) => return None,
@@ -94,8 +91,9 @@ impl TilePipeline {
             "Tile request channel closed! Cannot fetch more tiles"
         );
 
-        //guard.insert(tile_coord_to_u64(tile), cached_tile);
-        guard.guard.insert(tile, CachedTile::Pending);
+        guard
+            .guard
+            .insert(tile_coord_to_u64(tile), CachedTile::Pending);
         None
     }
 
@@ -145,14 +143,21 @@ impl TilePipeline {
 
             match tile.image {
                 None => {
-                    let _ = guard.insert(tile_id, CachedTile::NotAvailable);
+                    let _ = guard.insert(tile_coord_to_u64(tile_id), CachedTile::NotAvailable);
                 }
                 Some(image) => {
                     let texture = create_texture(display, image);
                     let image_id = image_map.insert(texture);
 
-                    //guard.insert(tile_coord_to_u64(tile), cached_tile);
-                    guard.insert(tile_id, CachedTile::Cached(image_id));
+                    let id = tile_coord_to_u64(tile_id);
+                    match guard.get_mut(id) {
+                        Some(value) => {
+                            *value = CachedTile::Cached(image_id);
+                        }
+                        None => {
+                            guard.insert(id, CachedTile::Cached(image_id));
+                        }
+                    }
 
                     tiles_processed += 1;
                 }

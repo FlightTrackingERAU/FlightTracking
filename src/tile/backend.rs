@@ -73,14 +73,7 @@ pub trait Backend: Send + Sync {
         }
         match result {
             Some(bytes) => {
-                let image = load_tile(bytes).await?;
-                if self.ignore_transparent_tiles() {
-                    let mut it = image.pixels();
-                    if let Some(pixel) = it.next() {
-                        let pixel: [u8; 4] = pixel.0;
-                        println!("alpha {} from: {}", pixel[3], self.name());
-                    }
-                }
+                let image = load_tile(bytes).await?; 
                 Ok(Some(image))
             }
             None => Ok(None),
