@@ -45,4 +45,6 @@ The user must **Hold-Left-Click** in order to be able to move around the map. Wh
 
 ## UI
 
-There are a total of 11 buttons on the UI. 6 of this buttons are for filtering purposes like, filtering planes according to their airlines. The other 5 buttons are 
+There are a total of 11 buttons on the UI. 6 of this buttons are for filtering purposes like, filtering planes according to their airlines. The other 5 buttons are display settings such as showing weather or showing airports. 
+
+* **Airplane Button**: ![Airplane Button](/examples/pictures/airplane-button.png)
