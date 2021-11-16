@@ -72,6 +72,7 @@ This button outputs into the **console** the speed of events the user do on the 
 
 
 * **Filter Buttons**: 
+
 ![Filter Buttons](/examples/pictures/filter-button.png)
 
 This are the **Plane Filter** Buttons. When any one type of Filter Button is clicked. The Planes in the map will change according to the Filter(or Airline). Example, if user clicked **American Airlines** only planes form American Airlines will display on the map.  
