@@ -58,7 +58,7 @@ When clicked 6 filter-type buttons will appear next to the **Airplane Button**
 
 This button enables/disables the weather on map. (Default = Disabled)
 
-* **Debug Button**: ![Debug Button](/examples/pictures/weather-button.png) 
+* **Debug Button**: ![Debug Button](/examples/pictures/debug-button.png) 
 
 This button just displays debug info to the user on the top left of the screen. **Debug** includes FPS, Speed of Map Rendering, Speed of Weather Rendering, and more features. 
 
