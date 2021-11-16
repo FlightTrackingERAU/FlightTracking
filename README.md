@@ -1,4 +1,4 @@
-# Flight Tracking ERAU SE300 ![shield](https://img.shields.io/badge/crates.io-v0.10.8-orange) ![shield](https://img.shields.io/badge/dependencies-secure-success) ![shield](https://img.shields.io/badge/build-success-success) 
+# Flight Tracking ERAU SE300 ![shield](https://img.shields.io/badge/crates.io-v0.10.8-orange) ![shield](https://img.shields.io/badge/dependencies-secure-success) ![shield](https://img.shields.io/badge/build-success-success) ![shield](https://img.shields.io/badge/doc-passing-success)
 
 ## Description
 
@@ -66,7 +66,7 @@ This button just displays debug info to the user on the top left of the screen. 
 
 This button displays the airport. Clicking it will enable/disable the airports on the screen. (Default = Enabled)
 
-* **Strong Button**: ![Strong Button](/examples/pictures/strong-button.png)
+* **Bench Button**: ![Bench Button](/examples/pictures/strong-button.png)
 
 This button outputs into the **console** the speed of events the user do on the UI. Mostly for developers to use. 
 
