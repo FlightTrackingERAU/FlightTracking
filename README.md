@@ -71,6 +71,7 @@ This button displays the airport. Clicking it will enable/disable the airports o
 This button outputs into the **console** the speed of events the user do on the UI. Mostly for developers to use. 
 
 
+
 * **Filter Buttons**
 
 ![Filter Buttons](/examples/pictures/filter-button.png)
