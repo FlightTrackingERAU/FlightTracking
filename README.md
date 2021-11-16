@@ -34,12 +34,12 @@ Rust: https://www.rust-lang.org/
 
 The Flight Tracking app allows the user to move freely in the world. The user may zoom in or zoom out as much as they want as long as is in the valid ranges.
  
-###### Zoom
+##### Zoom
 
 * **Scroll Up**: Zooms Out
 * **Scroll Down**: Zooms In
 
-###### Movement
+##### Movement
 
 The user must **Hold-Left-Click** in order to be able to move around the map. While Holding, user can just move the mouse to their preferrable location.
 
@@ -47,4 +47,30 @@ The user must **Hold-Left-Click** in order to be able to move around the map. Wh
 
 There are a total of 11 buttons on the UI. 6 of this buttons are for filtering purposes like, filtering planes according to their airlines. The other 5 buttons are display settings such as showing weather or showing airports. 
 
+#### Setting Buttons
+
 * **Airplane Button**: ![Airplane Button](/examples/pictures/airplane-button.png)
+
+This button displays all the filtering options for planes. 
+When clicked 6 filter-type buttons will appear next to the **Airplane Button** 
+
+* **Weather Button**: ![Weather Button](/examples/pictures/weather-button.png)
+
+This button enables/disables the weather on map. (Default = Disabled)
+
+* **Debug Button**: ![Debug Button](/examples/pictures/debug-button.png) 
+
+This button just displays debug info to the user on the top left of the screen. **Debug** includes FPS, Speed of Map Rendering, Speed of Weather Rendering, and more features. 
+
+* **Airport Button**: ![Airport Button](/examples/pictures/airport-button.png)
+
+This button displays the airport. Clicking it will enable/disable the airports on the screen. (Default = Enabled)
+
+* **Strong Button**: ![Strong Button](/examples/pictures/strong-button.png)
+
+This button outputs into the **console** the speed of events the user do on the UI. Mostly for developers to use. 
+
+#### Filter Buttons
+
+
+ 
