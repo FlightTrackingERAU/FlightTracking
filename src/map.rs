@@ -89,7 +89,10 @@ impl TileView {
         let new_pixel_size = pixel_size_from_zoom(zoom, window_width);
         self.pixel_size = new_pixel_size;
     }
-
+    ///Returns the zoom level of the current tile positioned.
+    pub fn get_zoom(&self) -> f64 {
+        zoom_from_pixel_size(self.pixel_size)
+    }
     pub fn multiply_zoom(&mut self, multiplier: f64) {
         let new_pixel_size = self.pixel_size * multiplier;
         //Make sure the entire world cannot be smaller that 100 pixels across
@@ -207,6 +210,11 @@ fn pixel_size_from_zoom(zoom: f64, window_width: f64) -> f64 {
 
     // Divide by the number of pixels to get the number of world coordinates per pixel
     window_size / window_width
+}
+
+///Returns the zoom the zoom level from the pixel size.
+fn zoom_from_pixel_size(pixel_size: f64) -> f64 {
+    f64::log2(1.0 / pixel_size)
 }
 
 /// Walks the positions of all the tiles currently in view, returning their coordinates for

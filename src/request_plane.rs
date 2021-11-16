@@ -3,12 +3,14 @@ use tokio::{runtime::Runtime, time::Instant};
 
 use opensky_api::errors::Error;
 
-///The body of a Plane
+use crate::Airline;
+
+/// The body of a Plane
 ///
-///Right Now we only care about Long and Lat;
-///It will maybe be bigger depending on things we may like
-///The planes to do.
-#[derive(Debug)]
+/// Right Now we only care about Long and Lat;
+/// It will maybe be bigger depending on things we may like
+/// The planes to do.
+#[derive(Clone)]
 pub struct Plane {
     pub longitude: f32,
     pub latitude: f32,
@@ -28,7 +30,7 @@ impl Plane {
 ///Structure to save te Plane data we request
 ///We put it into an Arc and Mutex to make it easier to read.
 pub struct PlaneRequester {
-    planes_storage: Arc<Mutex<Arc<Vec<Plane>>>>,
+    planes_storage: Arc<Mutex<Arc<Vec<(Airline, Vec<Plane>)>>>>,
 }
 
 impl PlaneRequester {
@@ -42,21 +44,32 @@ impl PlaneRequester {
     }
 
     ///Returns a clone of the Mutex list of planes.
-    pub fn planes_storage(&self) -> Arc<Vec<Plane>> {
+    pub fn planes_storage(&self) -> Arc<Vec<(Airline, Vec<Plane>)>> {
         let guard = self.planes_storage.lock().unwrap();
         guard.clone()
     }
 }
 
-///Loop to get plane data.
-///Some math had to be done for the sleeping time.
+/// Loop to get plane data.
+/// Some math had to be done for the sleeping time.
 ///
-///The OpenSky Api gets data every 5-6 seconds,
-///the function must also follow that running time.
+/// The OpenSky Api gets data every 5-6 seconds,
+/// the function must also follow that running time.
 ///
-async fn plane_data_loop(list_of_planes: Arc<Mutex<Arc<Vec<Plane>>>>) {
+async fn plane_data_loop(list_of_planes: Arc<Mutex<Arc<Vec<(Airline, Vec<Plane>)>>>>) {
     loop {
         let start = Instant::now();
+
+        match request_plane_data().await {
+            Ok(plane_data) => {
+                let mut guard = list_of_planes.lock().unwrap();
+                *guard = Arc::new(plane_data);
+            }
+            Err(error) => {
+                println!("Error at getting plane data: {:?}", error)
+            }
+        }
+
         if let Ok(plane_data) = request_plane_data().await {
             let mut guard = list_of_planes.lock().unwrap();
             *guard = Arc::new(plane_data);
@@ -77,16 +90,22 @@ async fn plane_data_loop(list_of_planes: Arc<Mutex<Arc<Vec<Plane>>>>) {
     }
 }
 
-///In here we call the OpenSky Api to get the data from planes.
+/// In here we call the OpenSky Api to get the data from planes.
 ///
-///Request the plane data and makes it into a Vec.
-async fn request_plane_data() -> Result<Vec<Plane>, Error> {
+/// Request the plane data and makes it into a Vec.
+async fn request_plane_data() -> Result<Vec<(Airline, Vec<Plane>)>, Error> {
     let open_sky = opensky_api::OpenSkyApi::new();
 
     let state_request = open_sky.get_states();
+    let mut plane_airlines = Vec::new();
+
+    let mut spirit_planes = Vec::new();
+    let mut american_al_planes = Vec::new();
+    let mut southwest_planes = Vec::new();
+    let mut united_al_planes = Vec::new();
+    let mut other_planes = Vec::new();
 
     let open_sky = state_request.send().await?;
-    let mut plane_list = Vec::new();
     for state in open_sky.states {
         let longitude = state.longitude;
         let latitude = state.latitude;
@@ -101,11 +120,29 @@ async fn request_plane_data() -> Result<Vec<Plane>, Error> {
                     latitude,
                     track,
                 };
-                plane_list.push(plane);
+
+                if let Some(airline) = state.callsign {
+                    if airline.len() > 3 {
+                        match &airline[0..3] {
+                            "NKS" => spirit_planes.push(plane),
+                            "AAL" => american_al_planes.push(plane),
+                            "SWA" => southwest_planes.push(plane),
+                            "UAL" => united_al_planes.push(plane),
+                            _ => other_planes.push(plane),
+                        }
+                    } else {
+                        other_planes.push(plane);
+                    }
+                };
             }
-        } else {
         }
     }
 
-    Ok(plane_list)
+    plane_airlines.push((Airline::Spirit, spirit_planes));
+    plane_airlines.push((Airline::American, american_al_planes));
+    plane_airlines.push((Airline::Southwest, southwest_planes));
+    plane_airlines.push((Airline::United, united_al_planes));
+    plane_airlines.push((Airline::Other, other_planes));
+
+    Ok(plane_airlines)
 }

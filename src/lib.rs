@@ -41,6 +41,7 @@ widget_ids!(pub struct Ids {
     weather_button,
     airplane_button,
     debug_button,
+    airport_button,
     bench_button,
     latitude_lines[],
     latitude_text[],
@@ -78,15 +79,21 @@ pub fn run_app() {
 
     let mut image_map: conrod_core::image::Map<glium::Texture2d> = conrod_core::image::Map::new();
 
-    // Making airplane image ids
-    let airplane_image_bytes = include_bytes!("../assets/images/airplane-icon.png");
-    let airplane_id = return_image_essentials(&display, airplane_image_bytes, &mut image_map);
+    // Making airplane image ids for the button
+    let airplane_button_bytes = include_bytes!("../assets/images/airplane-icon.png");
+    let airplane_button_ids =
+        return_image_essentials(&display, airplane_button_bytes, &mut image_map);
 
+    // Making weather images ids
     let weather_image_bytes = include_bytes!("../assets/images/weather-icon.png");
     let weather_id = return_image_essentials(&display, weather_image_bytes, &mut image_map);
 
+    // Making debug image ids
     let gear_icon_bytes = include_bytes!("../assets/images/gear-icon.png");
     let gear_id = return_image_essentials(&display, gear_icon_bytes, &mut image_map);
+
+    let airport_icon_bytes = include_bytes!("../assets/images/airport-icon.png");
+    let airport_id = return_image_essentials(&display, airport_icon_bytes, &mut image_map);
 
     let bench_icon_bytes = include_bytes!("../assets/images/bench-icon.png");
     let bench_id = return_image_essentials(&display, bench_icon_bytes, &mut image_map);
@@ -120,8 +127,12 @@ pub fn run_app() {
     let mut last_cursor_pos: Option<DVec2> = None;
     let mut left_pressed = false;
 
-    let mut weather_enabled = true;
-    let mut debug_enabled = true;
+    let mut weather_enabled = false;
+    let mut debug_enabled = false;
+
+    let mut filter_enabled: bool = false;
+    let mut airport_enabled: bool = true;
+    let mut selected_airline = Airline::All;
 
     let mut last_fps_print = Instant::now();
     let mut frame_counter = 0;
@@ -188,11 +199,14 @@ pub fn run_app() {
                 if should_update_ui {
                     // should_update_ui = false;
 
-                    // Set the widgets.
                     let mut map_ui = map_ui.set_widgets();
                     let map_ui = &mut map_ui;
                     let mut overlay_ui = overlay_ui.set_widgets();
                     let overlay_ui = &mut overlay_ui;
+
+                    overlay_ids
+                        .filer_button
+                        .resize(6, &mut overlay_ui.widget_id_generator());
 
                     //========== Draw Map ==========
                     {
@@ -208,14 +222,16 @@ pub fn run_app() {
                     }
 
                     //========== Draw Airports ==========
-
-                    airports::airport_renderer::draw(
-                        &airports,
-                        &viewer,
-                        &display,
-                        &mut map_ids,
-                        map_ui,
-                    );
+                    if airport_enabled {
+                        airports::airport_renderer::draw(
+                            &airports,
+                            &viewer,
+                            &display,
+                            &mut map_ids,
+                            airport_id,
+                            map_ui,
+                        );
+                    }
 
                     //========== Draw Debug Data ==========
 
@@ -299,6 +315,18 @@ pub fn run_app() {
                     let widget_x_position = (overlay_ui.win_w / 2.0) * 0.95 - 25.0;
                     let widget_y_position = (overlay_ui.win_h / 2.0) * 0.90;
 
+                    //========== Draw Airplane Filter Button ==========
+                    if button_widget::draw_circle_with_image(
+                        overlay_ids.airplane_button,
+                        overlay_ui,
+                        airplane_button_ids,
+                        widget_x_position,
+                        widget_y_position,
+                    ) {
+                        filter_enabled = !filter_enabled;
+                    }
+
+                    //========== Draw weather Button ==========
                     if button_widget::draw_circle_with_image(
                         overlay_ids.weather_button,
                         overlay_ui,
@@ -308,7 +336,7 @@ pub fn run_app() {
                     ) {
                         weather_enabled = !weather_enabled;
                     }
-
+                    //========== Draw Debug Button ==========
                     if button_widget::draw_circle_with_image(
                         overlay_ids.debug_button,
                         overlay_ui,
@@ -318,21 +346,86 @@ pub fn run_app() {
                     ) {
                         debug_enabled = !debug_enabled;
                     }
-
-                    button_widget::draw_circle_with_image(
-                        overlay_ids.airplane_button,
+                    //========== Draw Airport Button ==========
+                    if button_widget::draw_circle_with_image(
+                        overlay_ids.airport_button,
                         overlay_ui,
-                        airplane_id,
+                        airport_id,
                         widget_x_position,
-                        widget_y_position,
-                    );
+                        widget_y_position - 210.0,
+                    ) {
+                        airport_enabled = !airport_enabled;
+                    }
+                    //========== Filtering buttons enabling/disabling ==========
+                    if filter_enabled {
+                        //========== Draw American Airlines Filter ==========
+                        if ui_filter::draw(
+                            overlay_ids.filer_button[0],
+                            overlay_ui,
+                            String::from("American Airlines"),
+                            widget_x_position - 130.0,
+                            widget_y_position,
+                        ) {
+                            selected_airline = Airline::American;
+                        }
+                        //========== Draw Spirit Filter ==========
+                        if ui_filter::draw(
+                            overlay_ids.filer_button[1],
+                            overlay_ui,
+                            String::from("Spirit"),
+                            widget_x_position - 130.0,
+                            widget_y_position - 40.0,
+                        ) {
+                            selected_airline = Airline::Spirit;
+                        }
+                        //========== Draw SouthWest Filter ==========
+                        if ui_filter::draw(
+                            overlay_ids.filer_button[2],
+                            overlay_ui,
+                            String::from("Southwest"),
+                            widget_x_position - 130.0,
+                            widget_y_position - 80.0,
+                        ) {
+                            selected_airline = Airline::Southwest;
+                        }
+                        //========== Draw United Filter ==========
+                        if ui_filter::draw(
+                            overlay_ids.filer_button[3],
+                            overlay_ui,
+                            String::from("United"),
+                            widget_x_position - 130.0,
+                            widget_y_position - 120.0,
+                        ) {
+                            selected_airline = Airline::United
+                        }
+                        //========== Draw Other Filter ==========
+                        if ui_filter::draw(
+                            overlay_ids.filer_button[4],
+                            overlay_ui,
+                            String::from("Other Airlines"),
+                            widget_x_position - 130.0,
+                            widget_y_position - 160.0,
+                        ) {
+                            selected_airline = Airline::Other
+                        }
+                        //========== Draw All Filter ==========
+                        if ui_filter::draw(
+                            overlay_ids.filer_button[5],
+                            overlay_ui,
+                            String::from("All"),
+                            widget_x_position - 130.0,
+                            widget_y_position - 200.0,
+                        ) {
+                            selected_airline = Airline::All
+                        }
+                    }
 
                     if button_widget::draw_circle_with_image(
                         overlay_ids.bench_button,
                         overlay_ui,
                         bench_id,
                         widget_x_position,
-                        widget_y_position - 210.0,
+                        widget_y_position - 280.0,
                     ) {
                         let now = Instant::now();
                         match frame_times.take() {
@@ -353,37 +446,6 @@ pub fn run_app() {
                         }
                     }
 
-                    ui_filter::draw(
-                        overlay_ids.filer_button[0],
-                        overlay_ui,
-                        String::from("American Airlines"),
-                        widget_x_position - 130.0,
-                        widget_y_position,
-                    );
-
-                    ui_filter::draw(
-                        overlay_ids.filer_button[1],
-                        overlay_ui,
-                        String::from("Spirit"),
-                        widget_x_position - 130.0,
-                        widget_y_position - 40.0,
-                    );
-
-                    ui_filter::draw(
-                        overlay_ids.filer_button[2],
-                        overlay_ui,
-                        String::from("Southwest"),
-                        widget_x_position - 130.0,
-                        widget_y_position - 80.0,
-                    );
-
-                    ui_filter::draw(
-                        overlay_ids.filer_button[3],
-                        overlay_ui,
-                        String::from("United"),
-                        widget_x_position - 130.0,
-                        widget_y_position - 120.0,
-                    );
                     scope_render_buttons.end();
 
                     frame_counter += 1;
@@ -421,7 +483,13 @@ pub fn run_app() {
 
                 //=========Draw Planes============
 
-                plane_renderer.draw(&display, &mut target, &mut plane_requester, &viewer);
+                plane_renderer.draw(
+                    &display,
+                    &mut target,
+                    &mut plane_requester,
+                    &viewer,
+                    selected_airline,
+                );
 
                 //=========Draw Overlay===========
 
