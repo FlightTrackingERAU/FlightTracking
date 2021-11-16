@@ -11,6 +11,7 @@ Rust: https://www.rust-lang.org/
 
 ## Implementations
 * Zoom: 
+
 ![Zooming Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/feature/readme/examples/ezgif.com-gif-maker.gif)
 
 
@@ -21,4 +22,5 @@ Rust: https://www.rust-lang.org/
 
 
 * Toggle Airports on/off:
+
 ![Airport On/Off Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/feature/readme/examples/airport_toggle.gif)
