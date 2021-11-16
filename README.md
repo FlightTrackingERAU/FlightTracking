@@ -17,9 +17,12 @@ Rust: https://www.rust-lang.org/
 
 * Filter Planes by Airline
 
+![Zooming Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/feature/readme/examples/airline-filter.gif)
+
 
 * Toggle Weather on/off
 
+![Zooming Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/feature/readme/examples/weather-toggle.gif)
 
 * Toggle Airports on/off:
 
