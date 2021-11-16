@@ -47,7 +47,7 @@ The user must **Hold-Left-Click** in order to be able to move around the map. Wh
 
 There are a total of 11 buttons on the UI. 6 of this buttons are for filtering purposes like, filtering planes according to their airlines. The other 5 buttons are display settings such as showing weather or showing airports. 
 
-#### Setting Buttons
+#### Buttons
 
 * **Airplane Button**: ![Airplane Button](/examples/pictures/airplane-button.png)
 
@@ -71,9 +71,9 @@ This button displays the airport. Clicking it will enable/disable the airports o
 This button outputs into the **console** the speed of events the user do on the UI. Mostly for developers to use. 
 
 
-#### Filter Buttons
+* **Filter Buttons**
 
 ![Filter Buttons](/examples/pictures/filter-button.png)
 
-* This are the **Plane Filter** Buttons. When any one type of Filter Button is clicked. The Planes in the map will change according to the Filter(or Airline). Example, if user clicked **American Airlines** only planes form American Airlines will display on the map.  
+This are the **Plane Filter** Buttons. When any one type of Filter Button is clicked. The Planes in the map will change according to the Filter(or Airline). Example, if user clicked **American Airlines** only planes form American Airlines will display on the map.  
  
