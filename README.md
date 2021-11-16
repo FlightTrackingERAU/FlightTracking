@@ -12,18 +12,37 @@ Rust: https://www.rust-lang.org/
 ## Implementations
 * Zoom: 
 
-![Zooming Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/feature/readme/examples/ezgif.com-gif-maker.gif)
+![Zooming Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/feature/readme/examples/gif/ezgif.com-gif-maker.gif)
 
 
 * Filter Planes by Airline
 
-![Zooming Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/feature/readme/examples/airline-filter.gif)
+![Zooming Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/feature/readme/examples/gif/airline-filter.gif)
 
 
 * Toggle Weather on/off
 
-![Zooming Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/feature/readme/examples/weather-toggle.gif)
+![Zooming Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/feature/readme/examples/gif/weather-toggle.gif)
 
 * Toggle Airports on/off:
 
-![Airport On/Off Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/feature/readme/examples/airport_toggle.gif)
+![Airport On/Off Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/feature/readme/examples/gif/airport_toggle.gif)
+
+# Guide
+
+## Navigation
+
+The Flight Tracking app allows the user to move freely in the world. The user may zoom in or zoom out as much as they want as long as is in the valid ranges.
+ 
+###### Zoom
+
+* **Scroll Up**: Zooms Out
+* **Scroll Down**: Zooms In
+
+###### Movement
+
+The user must **Hold-Left-Click** in order to be able to move around the map. While Holding, user can just move the mouse to their preferrable location.
+
+## UI
+
+There are a total of 11 buttons on the UI. 6 of this buttons are for filtering purposes like, filtering planes according to their airlines. The other 5 buttons are 
