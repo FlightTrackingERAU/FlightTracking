@@ -1,4 +1,4 @@
-# Flight Tracking ERAU SE300 ![shield](https://img.shields.io/badge/crates.io-v0.10.8-orange) ![shield](https://img.shields.io/badge/dependencies-secure-success) ![shield](https://img.shields.io/badge/build-success-success) ![shield](https://img.shields.io/badge/doc-passing-success)
+# Flight Tracking ERAU SE300 ![shield](https://img.shields.io/badge/crates.io-v0.10.8-orange) ![shield](https://img.shields.io/badge/dependencies-secure-success) ![shield](https://img.shields.io/badge/build-success-success) ![shield](https://img.shields.io/badge/doc-passing-success) ![shield](https://img.shields.io/badge/license-GPL-brightgreen)
 
 ## Description
 
@@ -88,4 +88,3 @@ This are the **Plane Filter** Buttons. When any one type of Filter Button is cli
 * The Map doesn't load after using it for while. This is because the Map API used in the programs limits the amount of tiles it can load. 
 
 * (Not in Issue, more like a prefer) The Plane API only gets data every 5 seconds or so. Preferrably another Plane API with faster data should be found.
-
