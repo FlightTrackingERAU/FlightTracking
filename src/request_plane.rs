@@ -27,10 +27,12 @@ impl Plane {
     }
 }
 
+type AirlineMap = Vec<(Airline, Vec<Plane>)>;
+
 ///Structure to save te Plane data we request
 ///We put it into an Arc and Mutex to make it easier to read.
 pub struct PlaneRequester {
-    planes_storage: Arc<Mutex<Arc<Vec<(Airline, Vec<Plane>)>>>>,
+    planes_storage: Arc<Mutex<Arc<AirlineMap>>>,
 }
 
 impl PlaneRequester {
@@ -56,7 +58,7 @@ impl PlaneRequester {
 /// The OpenSky Api gets data every 5-6 seconds,
 /// the function must also follow that running time.
 ///
-async fn plane_data_loop(list_of_planes: Arc<Mutex<Arc<Vec<(Airline, Vec<Plane>)>>>>) {
+async fn plane_data_loop(list_of_planes: Arc<Mutex<Arc<AirlineMap>>>) {
     loop {
         let start = Instant::now();
 
