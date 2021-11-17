@@ -3,6 +3,8 @@ use itertools::Itertools;
 use std::convert::TryInto;
 use std::ops::Range;
 
+use crate::MAX_ZOOM_LEVEL;
+
 /// Representation of tile zoom levels.
 /// Unsigned value that indicated exponential zoom.
 /// 0 = Whole world is visible
@@ -49,9 +51,8 @@ pub struct TileView {
 
 impl TileView {
     pub fn new(latitude: f64, longitude: f64, zoom: f64, window_width: f64) -> Self {
-        let x = crate::util::map(-180.0, 180.0, longitude, 0.0, 1.0);
-        //TODO: Convert latitude properly, accounting for mercator stretching near the poles
-        let y = crate::util::map(90.0, -90.0, latitude, 0.0, 1.0);
+        let x = crate::util::x_from_longitude(longitude);
+        let y = crate::util::y_from_latitude(latitude);
         Self {
             center: DVec2::new(x, y),
             pixel_size: pixel_size_from_zoom(zoom, window_width),
@@ -88,7 +89,10 @@ impl TileView {
         let new_pixel_size = pixel_size_from_zoom(zoom, window_width);
         self.pixel_size = new_pixel_size;
     }
-
+    ///Returns the zoom level of the current tile positioned.
+    pub fn get_zoom(&self) -> f64 {
+        zoom_from_pixel_size(self.pixel_size)
+    }
     pub fn multiply_zoom(&mut self, multiplier: f64) {
         let new_pixel_size = self.pixel_size * multiplier;
         //Make sure the entire world cannot be smaller that 100 pixels across
@@ -135,15 +139,15 @@ impl TileView {
     ) -> TileViewIterator {
         //Tile zoom maxes out at 20.
         //TODO: Make this configurable in case tile providers have different maxes
-        let tile_zoom = self.tile_zoom_level(tile_size).min(20);
-        let max_tile = 2u32.pow(tile_zoom);
+        let tile_zoom = self.tile_zoom_level(tile_size).min(MAX_ZOOM_LEVEL);
+        let max_tile = 2u32.pow(tile_zoom) as f64;
 
         //Tile size is the size of a tile in pixels based on the current zoom level
         //We know how large each pixel should be in world coordinates, and how big the tile should
         //be in world coordinates. Use one to calculate the other
 
         //Units are world units (aka 1/(tile units))
-        let tile_length = 1.0 / max_tile as f64;
+        let tile_length = 1.0 / max_tile;
         let tile_size_world = DVec2::new(tile_length, tile_length);
 
         //`self.pixel_size` units are (world/pixel), so inv is (pixel/world)
@@ -162,12 +166,7 @@ impl TileView {
             top_left_world.y.rem_euclid(1.0),
         );
 
-        //        let bottom_right = DVec2::new(
-        //            bottom_right_world.x.rem_euclid(1.0),
-        //            bottom_right_world.y.rem_euclid(1.0),
-        //        );
-
-        let dest_max = DVec2::new(max_tile as f64, max_tile as f64);
+        let dest_max = DVec2::new(max_tile, max_tile);
 
         //Next map world coordinates to tile coordinates (0..1) to (0..max_tile)
         let top_left_tiles = top_left * dest_max;
@@ -181,16 +180,16 @@ impl TileView {
         let (tiles_wide, tiles_high) = {
             let diff = bottom_right_world - top_left_world;
             (
-                (diff.x * max_tile as f64).ceil() as u32 + 1,
-                (diff.y * max_tile as f64).ceil() as u32 + 2,
+                (diff.x * max_tile).ceil() as u32 + 1,
+                (diff.y * max_tile).ceil() as u32 + 2,
             )
         };
 
-        //We have all the values to make the iterator
+        // We have all the values to make the iterator
         TileViewIterator {
             product: (first_x..(first_x + tiles_wide))
                 .cartesian_product(first_y..first_y + tiles_high),
-            max_tile,
+            max_tile: max_tile as u32,
             //Invert x because we want to pull the first tile to the left so it moves across the
             //screen well.
             //We need the first_offset.y - 1.0 to shift the tile up by one. Otherwise we have an
@@ -211,6 +210,11 @@ fn pixel_size_from_zoom(zoom: f64, window_width: f64) -> f64 {
 
     // Divide by the number of pixels to get the number of world coordinates per pixel
     window_size / window_width
+}
+
+///Returns the zoom the zoom level from the pixel size.
+fn zoom_from_pixel_size(pixel_size: f64) -> f64 {
+    f64::log2(1.0 / pixel_size)
 }
 
 /// Walks the positions of all the tiles currently in view, returning their coordinates for
@@ -290,7 +294,7 @@ mod tests {
             expected.retain(|e| e != rendered);
         }
 
-        if expected.len() != 0 {
+        if !expected.is_empty() {
             println!("Rendered tiles are: {:?}", real);
             panic!("Tiles {:?} not rendered!", expected);
         }
@@ -376,24 +380,6 @@ mod tests {
             screen_height,
             x_start: 1,
             x_len: 2,
-            y_start: 1,
-            y_len: 2,
-        });
-    }
-
-    #[test]
-    fn tile_it_3() {
-        let screen_width = 750.0;
-        let screen_height = 500.0;
-
-        let view = TileView::new(83.0, -178.0, 4.0, screen_width);
-        are_tiles_visible(IsSameTiles {
-            view,
-            tile_size: 256,
-            screen_width,
-            screen_height,
-            x_start: 62,
-            x_len: 3,
             y_start: 1,
             y_len: 2,
         });

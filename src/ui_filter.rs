@@ -15,7 +15,6 @@ pub struct FilterButton<'a> {
     common: widget::CommonBuilder,
     /// Optional label string for the button.
     maybe_label: Option<&'a str>,
-
     ///What type of Button, Image or Flat
     /// See the Style struct below.
     style: Style,
@@ -176,26 +175,33 @@ impl<'a> Widget for FilterButton<'a> {
             (color, event)
         };
 
-        let radius = rect.h() / 2.0;
+        let diameter = rect.h();
+        let offset = rect.w() / 2.0;
+        let oval_dimensions = [diameter, diameter];
 
         //Drawing the circles
-        widget::Circle::fill(radius)
-            .x(rect.x() - rect.w() / 2.0)
+        widget::Oval::fill(oval_dimensions)
+            .x(rect.x() - offset)
             .y(rect.y())
+            .resolution(10)
             .graphics_for(id)
             .color(button_color)
+            .section(std::f64::consts::PI)
+            .offset_radians(std::f64::consts::FRAC_PI_2)
             .set(state.ids.start_circle, ui);
 
-        widget::Circle::fill(radius)
-            .x(rect.x() + rect.w() / 2.0)
+        widget::Oval::fill(oval_dimensions)
+            .x(rect.x() + offset)
             .y(rect.y())
+            .resolution(10)
             .graphics_for(id)
             .color(button_color)
+            .section(std::f64::consts::PI)
+            .offset_radians(-std::f64::consts::FRAC_PI_2)
             .set(state.ids.end_circle, ui);
 
-        let rect_fill = [rect.w(); 2];
+        let rect_fill = [rect.w(), rect.h()];
         widget::Rectangle::fill(rect_fill)
-            .w_h(rect.w(), rect.h())
             .middle_of(id)
             .graphics_for(id)
             .color(button_color)
@@ -205,6 +211,7 @@ impl<'a> Widget for FilterButton<'a> {
         if let Some(l) = maybe_label {
             label(id, state.ids.label, l, style, ui)
         }
+
         event
     }
 }
@@ -259,8 +266,8 @@ pub fn draw(
     label: String,
     widget_x_position: f64,
     widget_y_position: f64,
-) {
-    if let Some(_clicks) = FilterButton::new()
+) -> bool {
+    FilterButton::new()
         .x(widget_x_position)
         .y(widget_y_position)
         .w_h(150.0, 30.0)
@@ -268,7 +275,5 @@ pub fn draw(
         .label_color(conrod_core::color::BLACK)
         .label(label.as_str())
         .set(widget_id, ui)
-    {
-        println!("{:?}", ui.xy_of(widget_id));
-    }
+        .is_some()
 }

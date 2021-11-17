@@ -92,7 +92,7 @@ pub struct MapRendererState<'a, 'b, 'c, 'd, 'e> {
 
 /// Draws the satellite tiles, weather tiles (if enabled), latitude lines, and longitude lines,
 /// using the `view` inside `state`
-pub fn draw(state: MapRendererState, ui: &mut UiCell<'_>) {
+pub fn draw(state: MapRendererState, ui: &mut UiCell<'_>, font: conrod_core::text::font::Id) {
     let _scope = crate::profile_scope("map_renderer::draw");
     //Or value is okay here because `tile_size()` only returns `None` if no tiles are cached, which
     //only happens the first few frames, therefore this value doesn't need to be accurate
@@ -121,57 +121,73 @@ pub fn draw(state: MapRendererState, ui: &mut UiCell<'_>) {
         }
     }
 
-    let mut render_tile_set =
-        |pipeline: &mut TilePipeline, view: &crate::map::TileView, ids: &mut List| {
-            let tile_size = pipeline.tile_size().unwrap();
-
-            let it = view.tile_iter(tile_size, ui.win_w, ui.win_h);
-            let size = it.tile_size;
-            let offset = it.tile_offset;
-            let zoom_level = it.tile_zoom;
-
-            let tiles_vertically = it.tiles_vertically;
-
-            let tiles: Vec<_> = it.collect();
-            {
-                let mut guard = crate::MAP_PERF_DATA.lock();
-                guard.tiles_rendered = tiles.len();
-                guard.zoom = zoom_level;
-            }
-
-            ids.resize(tiles.len(), &mut ui.widget_id_generator());
-
-            // The conrod coordinate system places 0, 0 in the center of the window. Up is the positive y
-            // axis, and right is the positive x axis.
-            // The units are in terms of screen pixels, so on a window with a size of 1000x500 the point
-            // (500, 250) would be the top right corner
-            let scope_render_tiles = crate::profile_scope("Render Tiles");
-            for (i, tile) in tiles.iter().enumerate() {
-                let tile_x = i / tiles_vertically as usize;
-                let tile_y = i % tiles_vertically as usize;
-
-                let half_width = ui.win_w / 2.0;
-                let half_height = ui.win_h / 2.0;
-                let x = offset.x + tile_x as f64 * size.x - half_width + size.x / 2.0;
-                let y = offset.y - (tile_y as f64 * size.y) + half_height + size.y / 2.0;
-
-                let tile_id = TileId::new(tile.0, tile.1, zoom_level);
-
-                if let Some(tile) = pipeline.get_tile(tile_id) {
-                    Image::new(tile)
-                        .x_y(x, y)
-                        .wh(size.to_array())
-                        .set(ids[i], ui);
-                }
-            }
-            scope_render_tiles.end();
-        };
-
-    render_tile_set(satellite, view, &mut ids.satellite_tiles);
+    render_tile_set(satellite, view, &mut ids.satellite_tiles, ui);
     if state.weather_enabled {
-        render_tile_set(weather, view, &mut ids.weather_tiles);
+        render_tile_set(weather, view, &mut ids.weather_tiles, ui);
     }
 
+    // Draw the latitude and longitude lines
+    draw_lat_long(&viewport, ui, ids, font);
+}
+
+/// Renders a tile set from a provided tile pipeline
+pub fn render_tile_set(
+    pipeline: &mut TilePipeline,
+    view: &crate::map::TileView,
+    ids: &mut List,
+    ui: &mut UiCell<'_>,
+) {
+    let tile_size = pipeline.tile_size().unwrap();
+
+    let it = view.tile_iter(tile_size, ui.win_w, ui.win_h);
+    let size = it.tile_size;
+    let offset = it.tile_offset;
+    let zoom_level = it.tile_zoom;
+
+    let tiles_vertically = it.tiles_vertically;
+
+    let tiles: Vec<_> = it.collect();
+    {
+        let mut guard = crate::MAP_PERF_DATA.lock();
+        guard.tiles_rendered = tiles.len();
+        guard.zoom = zoom_level;
+    }
+
+    ids.resize(tiles.len(), &mut ui.widget_id_generator());
+
+    // The conrod coordinate system places 0, 0 in the center of the window. Up is the positive y
+    // axis, and right is the positive x axis.
+    // The units are in terms of screen pixels, so on a window with a size of 1000x500 the point
+    // (500, 250) would be the top right corner
+    let scope_render_tiles = crate::profile_scope("Render Tiles");
+    for (i, tile) in tiles.iter().enumerate() {
+        let tile_x = i / tiles_vertically as usize;
+        let tile_y = i % tiles_vertically as usize;
+
+        let half_width = ui.win_w / 2.0;
+        let half_height = ui.win_h / 2.0;
+        let x = offset.x + tile_x as f64 * size.x - half_width + size.x / 2.0;
+        let y = offset.y - (tile_y as f64 * size.y) + half_height + size.y / 2.0;
+
+        let tile_id = TileId::new(tile.0, tile.1, zoom_level);
+
+        if let Some(tile) = pipeline.get_tile(tile_id) {
+            Image::new(tile)
+                .x_y(x, y)
+                .wh(size.to_array())
+                .set(ids[i], ui);
+        }
+    }
+    scope_render_tiles.end();
+}
+
+/// Draws the lines of latitude and longitude onto the map
+pub fn draw_lat_long(
+    viewport: &crate::map::WorldViewport,
+    ui: &mut UiCell<'_>,
+    ids: &mut crate::Ids,
+    font: conrod_core::text::font::Id,
+) {
     let scope_render_latitude = crate::profile_scope("Render Latitude");
     //Lines of latitude
     let lat_line_distance =
@@ -201,7 +217,7 @@ pub fn draw(state: MapRendererState, ui: &mut UiCell<'_>) {
     for i in 0..lat_lines {
         let lat = lat_start - i as f64 * lat_line_distance;
         let world_y = crate::util::y_from_latitude(lat);
-        let y_pixel = world_y_to_pixel_y(world_y, &viewport, ui.win_h);
+        let y_pixel = world_y_to_pixel_y(world_y, viewport, ui.win_h);
 
         let half_width = ui.win_w / 2.0;
         Line::new([-half_width, y_pixel], [half_width, y_pixel])
@@ -221,6 +237,7 @@ pub fn draw(state: MapRendererState, ui: &mut UiCell<'_>) {
             .y(y_pixel)
             .color(conrod_core::color::WHITE)
             .font_size(12)
+            .font_id(font)
             .set(ids.latitude_text[i], ui);
     }
     scope_render_latitude.end();
@@ -256,7 +273,7 @@ pub fn draw(state: MapRendererState, ui: &mut UiCell<'_>) {
     for i in 0..lng_lines {
         let lng = lng_start + i as f64 * lng_line_distance;
         let world_x = x_start + i as f64 * line_distance_world;
-        let x_pixel = world_x_to_pixel_x(world_x, &viewport, ui.win_w);
+        let x_pixel = world_x_to_pixel_x(world_x, viewport, ui.win_w);
 
         let half_height = ui.win_h / 2.0;
         Line::new([x_pixel, -half_height], [x_pixel, half_height])
@@ -275,6 +292,7 @@ pub fn draw(state: MapRendererState, ui: &mut UiCell<'_>) {
             .x(x_pixel)
             .color(conrod_core::color::WHITE)
             .font_size(12)
+            .font_id(font)
             .set(ids.longitude_text[i], ui);
     }
 

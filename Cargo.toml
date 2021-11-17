@@ -1,13 +1,13 @@
 [package]
 name = "flight_tracking_erau_se300"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 readme = "README.md"
-authors = ["Troy Neubauer <troyneubauer@gmail.com>", "Luke Newcomb <newcomb.luke@protonmail.com>", "Walter Hernandez"]
+authors = ["Troy Neubauer <troyneubauer@gmail.com>", "Luke Newcomb <newcomb.luke@protonmail.com>", "Walter Hernandez <zhernandezwalter@gmail.com>", "Ricardo Iparraguirre <iparragr@my.erau.edu>"]
 repository = "https://github.com/TroyNeubauer/FlightTracking"
 documentation = "https://docs.rs/flight_tracking_erau_se300"
 description = "An app that displays the path of planes through the country of United States"
-license = "MIT"
+license = "GPL-3.0"
 
 [dependencies]
 conrod_core = "0.75"
@@ -23,12 +23,13 @@ num = "0.4"
 lazy_static = "1.0"
 find_folder =  "0.3"
 rand = "0.8"
+cgmath = "0.18.0"
 
 async-trait = "0.1"
 thiserror = "1.0"
 
 image = "0.22"
-rain_viewer = "0.2"
+rain_viewer = "0.3"
 maptiler-cloud = "0.3"
 opensky_api = "0.1.4"
 
@@ -42,3 +43,9 @@ simple_moving_average = "0.1"
 intmap = "0.7"
 enum-map = "1.1"
 atomic_enum = "0.1"
+statrs = "0.15"
+
+#Enable for dist builds
+#[profile.release]
+#lto = true
+#codegen-units = 1
