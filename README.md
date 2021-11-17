@@ -3,7 +3,7 @@
 ![build](https://shields.io/github/workflow/status/FlightTrackingERAU/FlightTracking/CI/develop) 
 ![docs.rs](https://img.shields.io/docsrs/flight_tracking_erau_se300)
  ![License](https://img.shields.io/github/license/FlightTrackingERAU/FlightTracking)
-[![Dependency status](https://deps.rs/repo/github/FlightTrackingERAU/FlightTracking/status.svg)](https://deps.rs/repo/github/FlightTrackingERAU/FlightTracking)
+[![Dependency](https://deps.rs/repo/github/FlightTrackingERAU/FlightTracking/status.svg)](https://deps.rs/repo/github/FlightTrackingERAU/FlightTracking)
 
 ## Description
 
