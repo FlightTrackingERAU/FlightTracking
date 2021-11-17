@@ -174,7 +174,7 @@ pub fn render_tile_set(
         if let Some(tile) = pipeline.get_tile(tile_id) {
             Image::new(tile)
                 .x_y(x, y)
-                .wh(size.to_array())
+                .w_h(size.x, size.y)
                 .set(ids[i], ui);
         }
     }

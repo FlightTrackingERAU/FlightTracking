@@ -100,7 +100,7 @@ impl Backend for DiskCache {
                         let path = entry.path();
                         if let Ok(bytes) = std::fs::read(&path) {
                             if let Ok(image) = image::load_from_memory(&bytes[..]) {
-                                let rgb = image.to_rgb();
+                                let rgb = image.to_rgb8();
                                 let str_path = path.to_string_lossy();
                                 if rgb.width() != rgb.height() {
                                     panic!("Image in cache: {}, is not square", str_path);
