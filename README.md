@@ -1,4 +1,9 @@
-# Flight Tracking ERAU SE300 ![shield](https://img.shields.io/badge/crates.io-v0.10.8-orange) ![shield](https://img.shields.io/badge/dependencies-secure-success) ![shield](https://img.shields.io/badge/build-success-success) ![shield](https://img.shields.io/badge/doc-passing-success) ![shield](https://img.shields.io/badge/license-GPL-brightgreen)
+# Flight Tracking ERAU SE300 
+[![Crates.io](https://img.shields.io/crates/v/flight_tracking_erau_se300.svg)](https://crates.io/crates/flight_tracking_erau_se300) 
+![build](https://shields.io/github/workflow/status/FlightTrackingERAU/FlightTracking/CI/develop) 
+![docs.rs](https://img.shields.io/docsrs/flight_tracking_erau_se300)
+ ![License](https://img.shields.io/github/license/FlightTrackingERAU/FlightTracking)
+[![Dependency](https://deps.rs/repo/github/FlightTrackingERAU/FlightTracking/status.svg)](https://deps.rs/repo/github/FlightTrackingERAU/FlightTracking)
 
 ## Description
 
