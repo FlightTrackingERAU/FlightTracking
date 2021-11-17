@@ -1,8 +1,8 @@
 # Flight Tracking ERAU SE300 
 [![Crates.io](https://img.shields.io/crates/v/flight_tracking_erau_se300.svg)](https://crates.io/crates/flight_tracking_erau_se300) 
-![build](https://shields.io/github/workflow/status/FlightTrackingERAU/FlightTracking/CI/develop) 
-![docs.rs](https://img.shields.io/docsrs/flight_tracking_erau_se300)
- ![License](https://img.shields.io/crates/l/flight_tracking_erau_se300)
+[![build](https://shields.io/github/workflow/status/FlightTrackingERAU/FlightTracking/CI/develop)](https://github.com/FlightTrackingERAU/FlightTracking/actions)
+[![docs.rs](https://img.shields.io/docsrs/flight_tracking_erau_se300)](https://docs.rs/flight_tracking_erau_se300/0.3.0/flight_tracking_erau_se300/)
+ [![License](https://img.shields.io/crates/l/flight_tracking_erau_se300)](https://github.com/FlightTrackingERAU/FlightTracking/blob/master/LICENSE)
 [![Dependency](https://deps.rs/repo/github/FlightTrackingERAU/FlightTracking/status.svg)](https://deps.rs/repo/github/FlightTrackingERAU/FlightTracking)
 
 ## Description
