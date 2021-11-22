@@ -17,21 +17,21 @@ Rust: https://www.rust-lang.org/
 ## Implementations
 * Zoom: 
 
-![Zooming Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/feature/readme/examples/gif/ezgif.com-gif-maker.gif)
+![Zooming Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/master/examples/gif/ezgif.com-gif-maker.gif)
 
 
 * Filter Planes by Airline
 
-![Zooming Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/feature/readme/examples/gif/airline-filter.gif)
+![Filter Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/master/examples/gif/airline-filter.gif)
 
 
 * Toggle Weather on/off
 
-![Zooming Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/feature/readme/examples/gif/weather-toggle.gif)
+![Weather Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/master/examples/gif/weather-toggle.gif)
 
 * Toggle Airports on/off:
 
-![Airport On/Off Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/feature/readme/examples/gif/airport_toggle.gif)
+![Airport On/Off Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/master/examples/gif/airport_toggle.gif)
 
 # Guide
 
