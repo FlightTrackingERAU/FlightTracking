@@ -1,6 +1,8 @@
 use std::time::{Duration, Instant};
 
-use conrod_core::{text::Font, widget, widget_ids, Colorable, Positionable, Sizeable, Widget};
+use conrod_core::{
+    text::Font, widget, widget_ids, Colorable, Positionable, Sizeable, UiCell, Widget,
+};
 use glam::DVec2;
 use glium::Surface;
 
@@ -50,7 +52,8 @@ widget_ids!(pub struct Ids {
     filer_button[],
     airports[],
     planes[],
-    square
+    square,
+    details
 });
 
 use std::fmt::Write;
@@ -141,6 +144,8 @@ pub fn run_app() {
     overlay_ids
         .filer_button
         .resize(4, &mut overlay_ui.widget_id_generator());
+
+    let mut selected_plane: Option<Plane> = None;
 
     event_loop.run(move |event, _, control_flow| {
         use glium::glutin::event::{
@@ -457,7 +462,15 @@ pub fn run_app() {
                         frame_counter = 0;
                     }
 
-                    //Time calculations
+                    if let Some(plane) = &selected_plane {
+                        let airline = plane.airline;
+
+                        widget::Text::new(airline.into())
+                            .x_y(0.0, 0.0)
+                            .set(overlay_ids.details, overlay_ui);
+                    }
+
+                    // Time calculations
                     let now = std::time::Instant::now();
                     frame_time_ms = (now - last_time).as_nanos() as f64 / 1_000_000.0;
                     if let Some((vec, _)) = &mut frame_times {
@@ -469,9 +482,8 @@ pub fn run_app() {
                 }
             }
             glium::glutin::event::Event::RedrawRequested(_) => {
-                //render and swap buffers
+                // Render and swap buffers
                 let map_primitives = map_ui.draw();
-                let overlay_primitives = overlay_ui.draw();
 
                 let mut target = display.draw();
                 target.clear_color(0.21, 0.32, 0.4, 1.0);
@@ -483,16 +495,18 @@ pub fn run_app() {
 
                 //=========Draw Planes============
 
-                plane_renderer.draw(
+                selected_plane = plane_renderer.draw(
                     &display,
                     &mut target,
                     &mut plane_requester,
                     &viewer,
                     selected_airline,
+                    last_cursor_pos,
                 );
 
                 //=========Draw Overlay===========
 
+                let overlay_primitives = overlay_ui.draw();
                 overlay_renderer.fill(&display, overlay_primitives, &image_map);
                 overlay_renderer
                     .draw(&display, &mut target, &image_map)

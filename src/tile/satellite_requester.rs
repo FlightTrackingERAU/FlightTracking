@@ -11,7 +11,11 @@ pub struct SatelliteRequester {
 
 impl SatelliteRequester {
     pub fn new(cache_data: DiskCacheData) -> Self {
-        let api_keys = ["GBnoGxmU64rzYqypBLp9", "VrgC04XoV1a84R5VkUnL"];
+        let api_keys = [
+            "GBnoGxmU64rzYqypBLp9",
+            "VrgC04XoV1a84R5VkUnL",
+            "aDXLSzDyrKtWljFn5vKR",
+        ];
         Self {
             maptiler: Maptiler::new(api_keys[rand::thread_rng().gen_range(0..api_keys.len())])
                 .expect("Failed to create maptiler TLS backend!"),

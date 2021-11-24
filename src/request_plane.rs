@@ -15,14 +15,16 @@ pub struct Plane {
     pub longitude: f32,
     pub latitude: f32,
     pub track: f32,
+    pub airline: Airline,
 }
 impl Plane {
     ///Constructor on to make a new Plane
-    pub fn new(longitude: f32, latitude: f32, track: f32) -> Self {
+    pub fn new(longitude: f32, latitude: f32, track: f32, airline: Airline) -> Self {
         Plane {
             longitude,
             latitude,
             track,
+            airline,
         }
     }
 }
@@ -117,25 +119,37 @@ async fn request_plane_data() -> Result<Vec<(Airline, Vec<Plane>)>, Error> {
             if let Some(longitude) = longitude {
                 let latitude = latitude.unwrap();
 
+                let airline = if let Some(airline) = state.callsign {
+                    if airline.len() > 3 {
+                        match &airline[0..3] {
+                            "NKS" => Airline::Spirit,
+                            "AAL" => Airline::American,
+                            "SWA" => Airline::Southwest,
+                            "UAL" => Airline::United,
+                            "DAL" => Airline::Delta,
+                            _ => Airline::Other,
+                        }
+                    } else {
+                        Airline::Other
+                    }
+                } else {
+                    Airline::Other
+                };
+
                 let plane = Plane {
                     longitude,
                     latitude,
                     track,
+                    airline,
                 };
 
-                if let Some(airline) = state.callsign {
-                    if airline.len() > 3 {
-                        match &airline[0..3] {
-                            "NKS" => spirit_planes.push(plane),
-                            "AAL" => american_al_planes.push(plane),
-                            "SWA" => southwest_planes.push(plane),
-                            "UAL" => united_al_planes.push(plane),
-                            _ => other_planes.push(plane),
-                        }
-                    } else {
-                        other_planes.push(plane);
-                    }
-                };
+                match airline {
+                    Airline::Spirit => spirit_planes.push(plane),
+                    Airline::American => american_al_planes.push(plane),
+                    Airline::Southwest => southwest_planes.push(plane),
+                    Airline::United => united_al_planes.push(plane),
+                    _ => other_planes.push(plane),
+                }
             }
         }
     }

@@ -1,12 +1,13 @@
 use std::io::Cursor;
 
 use enum_map::{enum_map, Enum, EnumMap};
+use glam::DVec2;
 use glium::{
     implement_vertex, index::NoIndices, texture::SrgbTexture2d, uniform, DrawParameters, Program,
     Surface,
 };
 
-use crate::{util, PlaneRequester};
+use crate::{map, util, Plane, PlaneRequester};
 
 /// Describes a few specific airlines, and also the selections of All or Other which the user can
 /// filter by
@@ -18,6 +19,21 @@ pub enum Airline {
     United,
     All,
     Other,
+
+    Delta,
+}
+
+impl From<Airline> for &str {
+    fn from(al: Airline) -> Self {
+        match al {
+            Airline::American => "American Airlines",
+            Airline::Spirit => "Spirit Airlines",
+            Airline::Southwest => "Southwest Airlines",
+            Airline::United => "United Airlines",
+            Airline::Delta => "Delta Airlines",
+            _ => "Unknown",
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -115,7 +131,7 @@ impl<'a> PlaneRenderer<'a> {
             Airline::Spirit => [1.0, 1.0, 0.0],
             Airline::United => [146.0 / 255.0, 182.0 / 255.0, 240.0 / 255.0],
             Airline::Southwest => [229.0 / 255.0, 29.0 / 255.0, 35.0 / 255.0],
-            Airline::All | Airline::Other => [0.0, 0.0, 0.0]
+            _ => [0.0, 0.0, 0.0]
         };
 
         Self {
@@ -136,7 +152,8 @@ impl<'a> PlaneRenderer<'a> {
         plane_requester: &mut PlaneRequester,
         view: &crate::TileView,
         selected_airline: Airline,
-    ) {
+        mut last_cursor_pos: Option<DVec2>,
+    ) -> Option<Plane> {
         // Here we collect the dynamic numbers for rendering our OpenGL planes
         let (width, height) = target.get_dimensions();
         let width = width as f32;
@@ -157,13 +174,23 @@ impl<'a> PlaneRenderer<'a> {
         let zoom = view.get_zoom() as f32;
 
         let size_of_plane = 1.5_f32.powf(zoom) / 30.0;
+        if let Some(pos) = last_cursor_pos {
+            let cursor_x = map(0.0, width as f64, pos.x, -1.0, 1.0);
+            let cursor_y = map(0.0, height as f64, pos.y, 1.0, -1.0);
+
+            last_cursor_pos = Some(DVec2::new(cursor_x, cursor_y));
+        }
+
+        let mut selected_plane = None;
+        let closest_x = 0.01;
+        let closest_y = 0.01;
 
         self.vertices.clear();
 
         // We iterate through all the planes and generated their OpenGL vertices
         for (airline, planes) in airlines.iter() {
             if *airline == selected_airline || selected_airline == Airline::All {
-                let color = self.color_map[*airline];
+                let airline_color = self.color_map[*airline];
 
                 for plane in planes.iter() {
                     if (plane.latitude > lat_bottom && plane.latitude < lat_top)
@@ -175,6 +202,20 @@ impl<'a> PlaneRenderer<'a> {
 
                         let offset_x = world_x_to_window_x(world_x, &viewport);
                         let offset_y = world_y_to_window_y(world_y, &viewport);
+
+                        let color = if let Some(last_cursor_pos) = last_cursor_pos {
+                            if (offset_x - last_cursor_pos.x as f32).abs() < closest_x
+                                && (offset_y - last_cursor_pos.y as f32).abs() < closest_y
+                            {
+                                selected_plane = Some(plane.clone());
+
+                                [1.0, 1.0, 1.0]
+                            } else {
+                                airline_color
+                            }
+                        } else {
+                            airline_color
+                        };
 
                         let offset = [offset_x, offset_y];
 
@@ -213,6 +254,8 @@ impl<'a> PlaneRenderer<'a> {
                 &self.draw_parameters,
             )
             .unwrap();
+
+        selected_plane
     }
 }
 
