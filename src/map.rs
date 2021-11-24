@@ -172,7 +172,7 @@ impl TileView {
         let top_left_tiles = top_left * dest_max;
 
         //Floor and ceil to render all tiles that are even partially visible
-        let first_offset = top_left_tiles % DVec2::new(1.0, 1.0);
+        let first_offset = DVec2::new(top_left_tiles.x % 1.0, top_left_tiles.y % 1.0);
 
         let first_x = (top_left_tiles.x - first_offset.x) as u32;
         let first_y = (top_left_tiles.y - first_offset.y) as u32;

@@ -523,7 +523,7 @@ fn return_image_essentials(
 
 // Load an image from our assets folder as a texture we can draw to the screen.
 fn load_image(display: &glium::Display, bytes: &[u8]) -> glium::texture::Texture2d {
-    let rgba_image = image::load_from_memory(bytes).unwrap().to_rgba();
+    let rgba_image = image::load_from_memory(bytes).unwrap().to_rgba8();
     let image_dimensions = rgba_image.dimensions();
     let raw_image = glium::texture::RawImage2d::from_raw_rgba_reversed(
         &rgba_image.into_raw(),

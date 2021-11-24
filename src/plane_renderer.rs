@@ -91,10 +91,10 @@ impl<'a> PlaneRenderer<'a> {
 
         let image = image::load(
             Cursor::new(&include_bytes!("../assets/images/airplane-image.png")),
-            image::ImageFormat::PNG,
+            image::ImageFormat::Png,
         )
         .unwrap()
-        .to_rgba();
+        .to_rgba8();
 
         let image_dimensions = image.dimensions();
 

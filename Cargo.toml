@@ -10,13 +10,13 @@ description = "An app that displays the path of planes through the country of Un
 license = "GPL-3.0"
 
 [dependencies]
-conrod_core = "0.75"
-conrod_winit = "0.75"
-conrod_glium = "0.75"
+conrod_core = "0.76"
+conrod_winit = "0.76"
+conrod_glium = "0.76"
 
-glium = "0.28"
-winit = "0.23"
-glam = "0.19"
+glium = "0.28"#Versions must match whats in https://github.com/PistonDevelopers/conrod/blob/master/backends/conrod_glium/Cargo.toml
+winit = "0.23"#Hence they are slightly out of date
+glam = "0.20"
 
 itertools = "0.10"
 num = "0.4"
@@ -28,7 +28,7 @@ cgmath = "0.18.0"
 async-trait = "0.1"
 thiserror = "1.0"
 
-image = "0.22"
+image = "0.23"
 rain_viewer = "0.3"
 maptiler-cloud = "0.3"
 opensky_api = "0.1.4"

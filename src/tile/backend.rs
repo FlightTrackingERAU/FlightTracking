@@ -110,7 +110,7 @@ pub async fn load_tile(bytes: Vec<u8>) -> Result<Texture, TileError> {
     let result: Result<Texture, TileError> = tokio::task::spawn_blocking(move || {
         let start = std::time::Instant::now();
 
-        let image = image::load_from_memory(&bytes)?.into_rgba();
+        let image = image::load_from_memory(&bytes)?.into_rgba8();
 
         let duration = start.elapsed();
         let mut guard = crate::MAP_PERF_DATA.lock();
