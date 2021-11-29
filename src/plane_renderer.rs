@@ -136,7 +136,7 @@ impl<'a> PlaneRenderer<'a> {
         plane_requester: &mut PlaneRequester,
         view: &crate::TileView,
         selected_airline: Airline,
-    ) {
+    ) -> bool {
         // Here we collect the dynamic numbers for rendering our OpenGL planes
         let (width, height) = target.get_dimensions();
         let width = width as f32;
@@ -145,6 +145,8 @@ impl<'a> PlaneRenderer<'a> {
 
         // From PlaneRequester gets all the airlines and planes
         let airlines = plane_requester.planes_storage();
+
+        let planes_loaded = !airlines.is_empty();
 
         // Viewport of the world
         let viewport = view.get_world_viewport(width as f64, height as f64);
@@ -213,6 +215,8 @@ impl<'a> PlaneRenderer<'a> {
                 &self.draw_parameters,
             )
             .unwrap();
+
+        planes_loaded
     }
 }
 
