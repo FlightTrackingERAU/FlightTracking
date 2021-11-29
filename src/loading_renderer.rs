@@ -133,7 +133,7 @@ impl<'a> LoadingScreenRenderer<'a> {
         self.logo_angle_delta += self.logo_angle_delta * 0.002;
 
         if self.logo_angle > std::f32::consts::TAU {
-            self.logo_angle = self.logo_angle - std::f32::consts::TAU;
+            self.logo_angle -= std::f32::consts::TAU;
         }
     }
 }
