@@ -175,8 +175,8 @@ impl<'a> PlaneRenderer<'a> {
 
         let size_of_plane = 1.5_f32.powf(zoom) / 30.0;
         if let Some(pos) = last_cursor_pos {
-            let cursor_x = map(0.0, width as f64, pos.x, -1.0, 1.0);
-            let cursor_y = map(0.0, height as f64, pos.y, 1.0, -1.0);
+            let cursor_x = map(0.0, width as f64, pos.x, -1.0, 1.0) / dpi_factor as f64;
+            let cursor_y = map(0.0, height as f64, pos.y, 1.0, -1.0) / dpi_factor as f64;
 
             last_cursor_pos = Some(DVec2::new(cursor_x, cursor_y));
         }
