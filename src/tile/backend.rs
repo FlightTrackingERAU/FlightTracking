@@ -32,14 +32,18 @@ pub enum ReadinessStatus {
 /// An error produced if loading a tile fails
 #[derive(Error, Debug)]
 pub enum TileError {
-    #[error("I/O: {0}")]
+    #[error("i/o: {0}")]
     Io(#[from] std::io::Error),
-    #[error("Image: {0}")]
+    #[error("image: {0}")]
     Image(#[from] image::ImageError),
-    #[error("Join: {0}")]
+    #[error("join: {0}")]
     Join(#[from] tokio::task::JoinError),
-    #[error("Maptiler: {0}")]
+    #[error("maptiler: {0}")]
     Maptiler(#[from] maptiler_cloud::errors::Error),
+    #[error("rain_viewer: {0}")]
+    RainViewer(#[from] rain_viewer::Error),
+    #[error("other: {0}")]
+    Other(String),
 }
 
 pub type Texture = ImageBuffer<Rgba<u8>, Vec<u8>>;

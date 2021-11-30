@@ -2,6 +2,7 @@
 Cargo.lock
 .cache/
 bench.txt
+ft.csv
 
 #Debugging
 .gdb_history

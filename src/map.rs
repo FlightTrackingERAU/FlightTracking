@@ -3,7 +3,7 @@ use itertools::Itertools;
 use std::convert::TryInto;
 use std::ops::Range;
 
-use crate::MAX_ZOOM_LEVEL;
+use crate::{TileId, MAX_ZOOM_LEVEL};
 
 /// Representation of tile zoom levels.
 /// Unsigned value that indicated exponential zoom.
@@ -19,6 +19,7 @@ pub type TileCoordinate = (u32, u32);
 /// 1 means the width of the entire world. These are unbounded, meaning they will be out of the
 /// normal 0..1 range if the camera is zoomed out very far or if the user has gone to a different
 /// world and zoomed in
+#[derive(Clone, Debug)]
 pub struct WorldViewport {
     /// The top left of the viewport.
     ///
@@ -32,6 +33,7 @@ pub struct WorldViewport {
     pub bottom_right: DVec2,
 }
 
+#[derive(Clone, Debug)]
 pub struct TileView {
     /// The center of the view [0..1] for both x and y
     ///
@@ -89,17 +91,19 @@ impl TileView {
         let new_pixel_size = pixel_size_from_zoom(zoom, window_width);
         self.pixel_size = new_pixel_size;
     }
+
     ///Returns the zoom level of the current tile positioned.
     pub fn get_zoom(&self) -> f64 {
         zoom_from_pixel_size(self.pixel_size)
     }
+
     pub fn multiply_zoom(&mut self, multiplier: f64) {
         let new_pixel_size = self.pixel_size * multiplier;
         //Make sure the entire world cannot be smaller that 100 pixels across
         if new_pixel_size < (1.0 / 100.0) {
             //Prevent the user from scrolling to where tile coordinates are less that 2^-28
             //On a normal screen this means you can zoom into about zoom level 20
-            let min_size: f64 = 1.064 / 2.0f64.powi(28);
+            let min_size = inv_2_pow(28);
             if new_pixel_size > min_size {
                 self.pixel_size = new_pixel_size;
             }
@@ -140,7 +144,7 @@ impl TileView {
         //Tile zoom maxes out at 20.
         //TODO: Make this configurable in case tile providers have different maxes
         let tile_zoom = self.tile_zoom_level(tile_size).min(MAX_ZOOM_LEVEL);
-        let max_tile = 2u32.pow(tile_zoom) as f64;
+        let max_tile = two_pow(tile_zoom) as f64;
 
         //Tile size is the size of a tile in pixels based on the current zoom level
         //We know how large each pixel should be in world coordinates, and how big the tile should
@@ -217,6 +221,53 @@ fn zoom_from_pixel_size(pixel_size: f64) -> f64 {
     f64::log2(1.0 / pixel_size)
 }
 
+/// Computes `1 / (2^exponent)`.
+/// Use commonly with zooms
+pub fn inv_2_pow(exponent: u32) -> f64 {
+    1.0 / two_pow(exponent) as f64
+}
+
+/// Computes `2^exponent`.
+// Written using shifts because the compiler is unable to optimize 2.pow(...) into a shift currently
+// https://godbolt.org/z/xa4sGTcrh
+pub fn two_pow(exponent: u32) -> u32 {
+    1 << exponent
+}
+
+/// Returns important a tile is to the current situation.
+///
+/// Returns 0.0 if currently in view, and larger numbers as tiles move away from the center, and
+/// away in terms of zoom.
+///
+/// `zoom`: The zoom level that is currently being rendered. The tile's zoom will be compared with this
+pub fn tile_heuristic(tile: TileId, viewport: &WorldViewport, view: &TileView, zoom: u32) -> f64 {
+    let zoom_factor = (tile.zoom as f64 - zoom as f64).abs();
+    let tile_width = inv_2_pow(tile.zoom);
+
+    //Compute the relative position of the center of the tile
+    let rel_location =
+        view.center - DVec2::new(tile.x as f64 * tile_width, tile.y as f64 * tile_width);
+
+    let mut abs_rel_location = DVec2::new(rel_location.x.abs(), rel_location.y.abs());
+
+    // Calculate the closest point on the tile to the center of the viewport
+    // Location will point to the top left, so if we are in the top left direction relative to the
+    // center, then we need to account for the width of a tile
+    if rel_location.x < 0.0 {
+        abs_rel_location.x -= tile_width;
+    }
+    if rel_location.y < 0.0 {
+        abs_rel_location.y -= tile_width;
+    }
+
+    let half_width = viewport.bottom_right.x - viewport.top_left.x;
+    let half_height = viewport.bottom_right.y - viewport.top_left.y;
+    let location_factor = f64::max(0.0, abs_rel_location.x - half_width)
+        + f64::max(0.0, abs_rel_location.y - half_height);
+
+    zoom_factor * 10.0 + 100.0 * location_factor
+}
+
 /// Walks the positions of all the tiles currently in view, returning their coordinates for
 /// rendering
 #[derive(Clone, Debug)]
@@ -273,7 +324,7 @@ mod tests {
             .tile_iter(data.tile_size, data.screen_width, data.screen_height);
 
         let real: Vec<TileCoordinate> = real_iter.collect();
-        let max_tile = 2u32.pow(data.view.tile_zoom_level(data.tile_size));
+        let max_tile = two_pow(data.view.tile_zoom_level(data.tile_size));
 
         let a = data.x_start..(data.x_start + data.x_len);
         let b = data.y_start..(data.y_start + data.y_len);
@@ -400,5 +451,63 @@ mod tests {
             //there are too few tile pixels
             assert!(window_width as f64 <= pixels_across);
         }
+    }
+
+    #[test]
+    fn tile_heuristic_1() {
+        let window_width = 1000.0;
+        let window_height = 800.0;
+        let view = TileView::new(0.0, 0.0, 0.0, window_width);
+        let center = view.get_world_viewport(window_width, window_height);
+        let hur = tile_heuristic(
+            TileId {
+                x: 0,
+                y: 0,
+                zoom: 0,
+            },
+            &center,
+            &view,
+            0,
+        );
+        assert_eq!(hur, 0.0);
+    }
+
+    #[test]
+    fn tile_heuristic_2() {
+        let window_width = 1000.0;
+        let window_height = 800.0;
+        let view = TileView::new(0.0, 0.0, 2.0, window_width);
+        let center = view.get_world_viewport(window_width, window_height);
+        let hur = tile_heuristic(
+            TileId {
+                x: 0,
+                y: 0,
+                zoom: 4,
+            },
+            &center,
+            &view,
+            0,
+        );
+        assert!(hur > 50.0);
+    }
+
+    #[test]
+    fn tile_heuristic_3() {
+        // Render a tile that is just in view and make sure that it has a hurestic of 0
+        let window_width = 1000.0;
+        let window_height = 800.0;
+        let view = TileView::new(0.0, 0.0, 1.6, window_width);
+        let center = view.get_world_viewport(window_width, window_height);
+        let hur = tile_heuristic(
+            TileId {
+                x: 1,
+                y: 1,
+                zoom: 2,
+            },
+            &center,
+            &view,
+            2,
+        );
+        assert_eq!(hur, 0.0);
     }
 }

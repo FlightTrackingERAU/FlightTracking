@@ -1,5 +1,8 @@
+use crate::{TileView, WorldViewport};
+use std::sync::atomic::AtomicU32;
+
 use conrod_core::{
-    widget::{id::List, Image, Line, Text},
+    widget::{id::List, Image, Line, RoundedRectangle, Text},
     Colorable, Positionable, Sizeable, UiCell, Widget,
 };
 
@@ -90,6 +93,8 @@ pub struct MapRendererState<'a, 'b, 'c, 'd, 'e> {
     pub weather_enabled: bool,
 }
 
+static RENDER_COUNT: AtomicU32 = AtomicU32::new(0);
+
 /// Draws the satellite tiles, weather tiles (if enabled), latitude lines, and longitude lines,
 /// using the `view` inside `state`
 pub fn draw(state: MapRendererState, ui: &mut UiCell<'_>, font: conrod_core::text::font::Id) {
@@ -108,22 +113,57 @@ pub fn draw(state: MapRendererState, ui: &mut UiCell<'_>, font: conrod_core::tex
     let satellite = cache_it.next().unwrap();
     let weather = cache_it.next().unwrap();
 
+    RENDER_COUNT.store(0, std::sync::atomic::Ordering::Relaxed);
+
+    let satellite_tile_size = satellite.tile_size().unwrap();
+    let satellite_it = view.tile_iter(satellite_tile_size, ui.win_w, ui.win_h);
     {
         let _p = crate::profile_scope("Satellite Tile Cache Update");
-        satellite.update(&viewport, display, image_map);
+        satellite.update(
+            &state.view,
+            display,
+            image_map,
+            &satellite_it,
+            ui.win_w as f64,
+            ui.win_h as f64,
+        );
     }
 
+    let mut weather_it = None;
     {
         let _p = crate::profile_scope("Weather Tile Cache Update");
 
         if state.weather_enabled {
-            weather.update(&viewport, display, image_map);
+            let weather_tile_size = satellite.tile_size().unwrap();
+            weather_it = Some(view.tile_iter(weather_tile_size, ui.win_w, ui.win_h));
+            weather.update(
+                &state.view,
+                display,
+                image_map,
+                weather_it.as_ref().unwrap(),
+                ui.win_w as f64,
+                ui.win_h as f64,
+            );
         }
     }
 
-    render_tile_set(satellite, view, &mut ids.satellite_tiles, ui);
+    render_tile_set(
+        satellite,
+        &mut ids.satellite_tiles,
+        ui,
+        satellite_it,
+        view,
+        &viewport,
+    );
     if state.weather_enabled {
-        render_tile_set(weather, view, &mut ids.weather_tiles, ui);
+        render_tile_set(
+            weather,
+            &mut ids.weather_tiles,
+            ui,
+            weather_it.take().unwrap(),
+            view,
+            &viewport,
+        );
     }
 
     // Draw the latitude and longitude lines
@@ -133,13 +173,15 @@ pub fn draw(state: MapRendererState, ui: &mut UiCell<'_>, font: conrod_core::tex
 /// Renders a tile set from a provided tile pipeline
 pub fn render_tile_set(
     pipeline: &mut TilePipeline,
-    view: &crate::map::TileView,
     ids: &mut List,
     ui: &mut UiCell<'_>,
+    it: crate::TileViewIterator,
+    view: &TileView,
+    viewport: &WorldViewport,
 ) {
-    let tile_size = pipeline.tile_size().unwrap();
+    let render_num = RENDER_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let palette = [conrod_core::color::YELLOW, conrod_core::color::ORANGE];
 
-    let it = view.tile_iter(tile_size, ui.win_w, ui.win_h);
     let size = it.tile_size;
     let offset = it.tile_offset;
     let zoom_level = it.tile_zoom;
@@ -153,7 +195,7 @@ pub fn render_tile_set(
         guard.zoom = zoom_level;
     }
 
-    ids.resize(tiles.len(), &mut ui.widget_id_generator());
+    ids.resize(tiles.len() * 3, &mut ui.widget_id_generator());
 
     // The conrod coordinate system places 0, 0 in the center of the window. Up is the positive y
     // axis, and right is the positive x axis.
@@ -175,8 +217,24 @@ pub fn render_tile_set(
             Image::new(tile)
                 .x_y(x, y)
                 .wh(size.to_array())
-                .set(ids[i], ui);
+                .set(ids[3 * i + 0], ui);
         }
+        RoundedRectangle::outline([0.0, 0.0], 5.0)
+            .color(palette[render_num as usize])
+            .x_y(x, y)
+            .wh(size.to_array())
+            .set(ids[3 * i + 1], ui);
+
+        let fake_zoom_level = if zoom_level == 0 { 0 } else { zoom_level + 1 };
+
+        let fake_view = view.clone();
+        let viewport = fake_view.get_world_viewport(ui.win_w, ui.win_h);
+
+        let text = format!(
+            "{:.1}",
+            crate::map::tile_heuristic(tile_id, &viewport, &fake_view, fake_zoom_level,)
+        );
+        Text::new(text.as_str()).set(ids[3 * i + 2], ui);
     }
     scope_render_tiles.end();
 }

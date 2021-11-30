@@ -1,5 +1,5 @@
 use super::*;
-use crate::{TileId, WorldViewport};
+use crate::{TileId, TileView, TileViewIterator};
 
 use simple_moving_average::SMA;
 use tokio::runtime::Runtime;
@@ -26,6 +26,7 @@ pub struct TilePipeline {
     upload_rx: Receiver<MemoryTile>,
     request_tx: Arc<UnboundedSender<TileId>>,
     tile_size: AtomicU32,
+    preemption_index: usize,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -53,6 +54,7 @@ impl TilePipeline {
             request_tx: Arc::new(request_tx),
             backends,
             tile_size: AtomicU32::new(0),
+            preemption_index: 0,
         }
     }
 
@@ -89,7 +91,6 @@ impl TilePipeline {
 
         for backend in self.backends.iter() {
             if let Some(size) = backend.tile_size() {
-                println!("Backend {} gave size: {}", backend.name(), size);
                 self.tile_size.store(size, Ordering::Relaxed);
                 return Some(size);
             }
@@ -99,12 +100,15 @@ impl TilePipeline {
 
     /// Called each frame to allow the pipeline to upload newly fetched tiles to the GPU.
     ///
-    /// `viewport`: The viewport of the currently rendered scene. This is used for preemption
+    /// `view`: The view of the currently rendered scene. This is used for preemption
     pub fn update(
         &mut self,
-        _viewport: &WorldViewport,
+        view: &TileView,
         display: &glium::Display,
         image_map: &mut conrod_core::image::Map<glium::Texture2d>,
+        current_view: &TileViewIterator,
+        width: f64,
+        height: f64,
     ) {
         //TODO: Pass viewport to preemption code
         const MAX_PROCESS_TIME: Duration = Duration::from_millis(50);
@@ -114,11 +118,6 @@ impl TilePipeline {
         while let Ok(tile) = self.upload_rx.try_recv() {
             let time_spent = start.elapsed();
             if time_spent > MAX_PROCESS_TIME {
-                println!(
-                    "Breaking from process loop after {} ms. Processed {} tiles",
-                    time_spent.as_micros() as f64 / 1000.0,
-                    tiles_processed
-                );
                 break;
             }
             let tile_id = tile.id;
@@ -145,6 +144,63 @@ impl TilePipeline {
 
                     tiles_processed += 1;
                 }
+            }
+        }
+
+        let _p = crate::profile_scope("Tile Eviction");
+        // Do preemption and eviction
+        let mut view = view.clone();
+        view.multiply_zoom(0.8);
+        if let Some(tile_size) = self.tile_size() {
+            let zoom = view.tile_zoom_level(tile_size);
+
+            let mut tiles_in_view: Vec<_> = view
+                .tile_iter(tile_size, width, height)
+                .map(|(x, y)| tile_coord_to_u64(TileId { x, y, zoom }))
+                .collect();
+
+            for (x, y) in current_view.clone() {
+                tiles_in_view.push(tile_coord_to_u64(TileId {
+                    x,
+                    y,
+                    zoom: current_view.tile_zoom,
+                }));
+            }
+            tiles_in_view.sort_unstable();
+
+            let mut to_remove = Vec::new();
+
+            // The number of elements in the cache to search.
+            // This can be slow so we do a little bit of work each frame
+            // The math works so that we look at all tiles every 2 seconds
+            let search_count =
+                (crate::get_frame_time() * self.cache.len() as f64 / 2.0).ceil() as usize;
+            if self.cache.len() != 0 {
+                self.preemption_index %= self.cache.len();
+            }
+            for (id, tile) in self
+                .cache
+                .iter_mut()
+                .skip(self.preemption_index)
+                .take(search_count)
+            {
+                match tile {
+                    CachedTile::Cached(_id) => {
+                        if tiles_in_view.binary_search(id).is_err() {
+                            //This tile is not in in view or the incorrect zoom
+                            to_remove.push(*id);
+                        }
+                    }
+                    CachedTile::NotAvailable => {
+                        //Possibly request
+                    }
+                    _ => {}
+                }
+            }
+            self.preemption_index += search_count;
+
+            for remove_id in to_remove {
+                self.cache.remove(remove_id);
             }
         }
     }

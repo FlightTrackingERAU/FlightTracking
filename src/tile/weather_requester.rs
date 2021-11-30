@@ -72,6 +72,7 @@ impl Backend for WeatherRequester {
     }
 
     async fn request_inner(&self, tile: TileId) -> Result<Option<Vec<u8>>, TileError> {
+        let mut try_count = 0;
         loop {
             let state = self.state.load(Ordering::Acquire);
             match state {
@@ -152,6 +153,7 @@ impl Backend for WeatherRequester {
                         }
                     }
 
+                    try_count += 1;
                     if let Some(last_frame) = available.data.nowcast_radar.last() {
                         if let Ok(mut args) = RequestArguments::new_tile(tile.x, tile.y, tile.zoom)
                         {
@@ -169,6 +171,10 @@ impl Backend for WeatherRequester {
                                 }
                                 Err(err) => {
                                     println!("failed to get tile {:?}: {:?}", tile, err);
+                                    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+                                    if try_count > 5 {
+                                        return Err(TileError::RainViewer(err));
+                                    }
                                 }
                             }
                         }

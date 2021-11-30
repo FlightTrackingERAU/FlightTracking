@@ -1,4 +1,7 @@
-use std::time::{Duration, Instant};
+use std::{
+    sync::atomic::{AtomicU64, Ordering},
+    time::{Duration, Instant},
+};
 
 use conrod_core::{text::Font, widget, widget_ids, Colorable, Positionable, Sizeable, Widget};
 use glam::DVec2;
@@ -53,6 +56,13 @@ widget_ids!(pub struct Ids {
     square
 });
 
+pub static LAST_FRAME_TIME: AtomicU64 = AtomicU64::new(0);
+
+/// Returns the number of seconds that it took to render the last frame
+pub fn get_frame_time() -> f64 {
+    f64::from_bits(LAST_FRAME_TIME.load(Ordering::Acquire))
+}
+
 use std::fmt::Write;
 pub use util::MAP_PERF_DATA;
 
@@ -66,7 +76,7 @@ pub fn run_app() {
 
     let context = glium::glutin::ContextBuilder::new()
         .with_vsync(false)
-        .with_multisampling(4);
+        .with_multisampling(2);
 
     let display = glium::Display::new(window, context, &event_loop).unwrap();
 
@@ -137,6 +147,8 @@ pub fn run_app() {
     let mut last_fps_print = Instant::now();
     let mut frame_counter = 0;
     let mut frame_times: Option<(Vec<f64>, Instant)> = None;
+
+    let mut ft_file = std::fs::File::create("ft.csv").unwrap();
 
     overlay_ids
         .filer_button
@@ -460,6 +472,11 @@ pub fn run_app() {
                     //Time calculations
                     let now = std::time::Instant::now();
                     frame_time_ms = (now - last_time).as_nanos() as f64 / 1_000_000.0;
+                    let _ = std::io::Write::write_fmt(
+                        &mut ft_file,
+                        format_args!("{},\n", frame_time_ms),
+                    );
+                    LAST_FRAME_TIME.store((frame_time_ms / 1000.0).to_bits(), Ordering::Release);
                     if let Some((vec, _)) = &mut frame_times {
                         vec.push(frame_time_ms);
                     }
