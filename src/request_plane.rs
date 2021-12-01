@@ -3,7 +3,7 @@ use tokio::{runtime::Runtime, time::Instant};
 
 use opensky_api::errors::Error;
 
-use crate::Airline;
+use crate::{Airline, PlaneType};
 
 /// The body of a Plane
 ///
@@ -16,25 +16,57 @@ pub struct Plane {
     pub latitude: f32,
     pub track: f32,
     pub airline: Airline,
+    pub plane_type: PlaneType,
+    pub callsign: String,
 }
 impl Plane {
     ///Constructor on to make a new Plane
-    pub fn new(longitude: f32, latitude: f32, track: f32, airline: Airline) -> Self {
+    pub fn new(
+        longitude: f32,
+        latitude: f32,
+        track: f32,
+        callsign: String,
+        airline: Airline,
+        plane_type: PlaneType,
+    ) -> Self {
         Plane {
             longitude,
             latitude,
             track,
             airline,
+            plane_type,
+            callsign,
         }
     }
 }
 
-type AirlineMap = Vec<(Airline, Vec<Plane>)>;
+pub struct PlaneBody {
+    pub planes: Vec<Plane>,
+    pub airline: Airline,
+    pub plane_type: PlaneType,
+}
+
+impl PlaneBody {
+    pub fn new(planes: Vec<Plane>, airline: Airline, plane_type: PlaneType) -> Self {
+        PlaneBody {
+            planes,
+            airline,
+            plane_type,
+        }
+    }
+    pub fn empty_body() -> Self {
+        PlaneBody {
+            planes: Vec::new(),
+            airline: Airline::Other,
+            plane_type: PlaneType::Unknown,
+        }
+    }
+}
 
 ///Structure to save te Plane data we request
 ///We put it into an Arc and Mutex to make it easier to read.
 pub struct PlaneRequester {
-    planes_storage: Arc<Mutex<Arc<AirlineMap>>>,
+    planes_storage: Arc<Mutex<Arc<Vec<PlaneBody>>>>,
 }
 
 impl PlaneRequester {
@@ -48,7 +80,7 @@ impl PlaneRequester {
     }
 
     ///Returns a clone of the Mutex list of planes.
-    pub fn planes_storage(&self) -> Arc<Vec<(Airline, Vec<Plane>)>> {
+    pub fn planes_storage(&self) -> Arc<Vec<PlaneBody>> {
         let guard = self.planes_storage.lock().unwrap();
         guard.clone()
     }
@@ -60,7 +92,7 @@ impl PlaneRequester {
 /// The OpenSky Api gets data every 5-6 seconds,
 /// the function must also follow that running time.
 ///
-async fn plane_data_loop(list_of_planes: Arc<Mutex<Arc<AirlineMap>>>) {
+async fn plane_data_loop(list_of_planes: Arc<Mutex<Arc<Vec<PlaneBody>>>>) {
     loop {
         let start = Instant::now();
 
@@ -97,17 +129,17 @@ async fn plane_data_loop(list_of_planes: Arc<Mutex<Arc<AirlineMap>>>) {
 /// In here we call the OpenSky Api to get the data from planes.
 ///
 /// Request the plane data and makes it into a Vec.
-async fn request_plane_data() -> Result<Vec<(Airline, Vec<Plane>)>, Error> {
+async fn request_plane_data() -> Result<Vec<PlaneBody>, Error> {
     let open_sky = opensky_api::OpenSkyApi::new();
 
     let state_request = open_sky.get_states();
-    let mut plane_airlines = Vec::new();
+    let mut list_of_planes: Vec<PlaneBody> = Vec::new();
 
-    let mut spirit_planes = Vec::new();
-    let mut american_al_planes = Vec::new();
-    let mut southwest_planes = Vec::new();
-    let mut united_al_planes = Vec::new();
-    let mut other_planes = Vec::new();
+    let mut spirit_planes: PlaneBody = PlaneBody::empty_body();
+    let mut american_al_planes: PlaneBody = PlaneBody::empty_body();
+    let mut southwest_planes: PlaneBody = PlaneBody::empty_body();
+    let mut united_al_planes: PlaneBody = PlaneBody::empty_body();
+    let mut other_planes: PlaneBody = PlaneBody::empty_body();
 
     let open_sky = state_request.send().await?;
     for state in open_sky.states {
@@ -119,21 +151,21 @@ async fn request_plane_data() -> Result<Vec<(Airline, Vec<Plane>)>, Error> {
             if let Some(longitude) = longitude {
                 let latitude = latitude.unwrap();
 
-                let airline = if let Some(airline) = state.callsign {
+                let (airline, callsign, plane_type) = if let Some(airline) = state.callsign {
                     if airline.len() > 3 {
                         match &airline[0..3] {
-                            "NKS" => Airline::Spirit,
-                            "AAL" => Airline::American,
-                            "SWA" => Airline::Southwest,
-                            "UAL" => Airline::United,
-                            "DAL" => Airline::Delta,
-                            _ => Airline::Other,
+                            "NKS" => (Airline::Spirit, airline, PlaneType::Commercial),
+                            "AAL" => (Airline::American, airline, PlaneType::Commercial),
+                            "SWA" => (Airline::Southwest, airline, PlaneType::Commercial),
+                            "UAL" => (Airline::United, airline, PlaneType::Commercial),
+                            "DAL" => (Airline::Delta, airline, PlaneType::Commercial),
+                            _ => (Airline::Other, airline, PlaneType::Unknown),
                         }
                     } else {
-                        Airline::Other
+                        (Airline::Other, airline, PlaneType::Unknown)
                     }
                 } else {
-                    Airline::Other
+                    (Airline::Other, String::from("Unknown"), PlaneType::Unknown)
                 };
 
                 let plane = Plane {
@@ -141,24 +173,46 @@ async fn request_plane_data() -> Result<Vec<(Airline, Vec<Plane>)>, Error> {
                     latitude,
                     track,
                     airline,
+                    plane_type,
+                    callsign,
                 };
 
                 match airline {
-                    Airline::Spirit => spirit_planes.push(plane),
-                    Airline::American => american_al_planes.push(plane),
-                    Airline::Southwest => southwest_planes.push(plane),
-                    Airline::United => united_al_planes.push(plane),
-                    _ => other_planes.push(plane),
+                    Airline::Spirit => {
+                        spirit_planes.planes.push(plane);
+                        spirit_planes.airline = airline;
+                        spirit_planes.plane_type = plane_type;
+                    }
+                    Airline::American => {
+                        american_al_planes.planes.push(plane);
+                        american_al_planes.airline = airline;
+                        american_al_planes.plane_type = plane_type;
+                    }
+                    Airline::Southwest => {
+                        southwest_planes.planes.push(plane);
+                        southwest_planes.airline = airline;
+                        southwest_planes.plane_type = plane_type;
+                    }
+                    Airline::United => {
+                        united_al_planes.planes.push(plane);
+                        united_al_planes.airline = airline;
+                        united_al_planes.plane_type = plane_type;
+                    }
+                    _ => {
+                        other_planes.planes.push(plane);
+                        other_planes.airline = airline;
+                        other_planes.plane_type = plane_type;
+                    }
                 }
             }
         }
     }
 
-    plane_airlines.push((Airline::Spirit, spirit_planes));
-    plane_airlines.push((Airline::American, american_al_planes));
-    plane_airlines.push((Airline::Southwest, southwest_planes));
-    plane_airlines.push((Airline::United, united_al_planes));
-    plane_airlines.push((Airline::Other, other_planes));
+    list_of_planes.push(spirit_planes);
+    list_of_planes.push(american_al_planes);
+    list_of_planes.push(southwest_planes);
+    list_of_planes.push(united_al_planes);
+    list_of_planes.push(other_planes);
 
-    Ok(plane_airlines)
+    Ok(list_of_planes)
 }

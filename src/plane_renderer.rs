@@ -7,8 +7,41 @@ use glium::{
     Surface,
 };
 
-use crate::{map, util, Plane, PlaneRequester};
+use crate::{map, util, world_x_to_pixel_x, world_y_to_pixel_y, Plane, PlaneRequester};
 
+///Normal body of plane we select
+#[derive(Clone)]
+pub struct SelectedPlane {
+    pub plane: Plane,
+    pub location: DVec2,
+    pub size: f32,
+}
+
+impl SelectedPlane {
+    pub fn new(plane: Plane, location: DVec2, size: f32) -> Self {
+        SelectedPlane {
+            plane,
+            location,
+            size,
+        }
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Enum)]
+pub enum PlaneType {
+    Commercial,
+    Cargo,
+    Unknown,
+}
+impl PlaneType {
+    pub fn to_str(self) -> &'static str {
+        match self {
+            PlaneType::Commercial => "Commercial",
+            PlaneType::Cargo => "Cargo",
+            PlaneType::Unknown => "Unkown",
+        }
+    }
+}
 /// Describes a few specific airlines, and also the selections of All or Other which the user can
 /// filter by
 #[derive(Copy, Clone, PartialEq, Eq, Enum)]
@@ -19,13 +52,12 @@ pub enum Airline {
     United,
     All,
     Other,
-
     Delta,
 }
 
-impl From<Airline> for &str {
-    fn from(al: Airline) -> Self {
-        match al {
+impl Airline {
+    pub fn to_str(self) -> &'static str {
+        match self {
             Airline::American => "American Airlines",
             Airline::Spirit => "Spirit Airlines",
             Airline::Southwest => "Southwest Airlines",
@@ -152,8 +184,9 @@ impl<'a> PlaneRenderer<'a> {
         plane_requester: &mut PlaneRequester,
         view: &crate::TileView,
         selected_airline: Airline,
+        clicked_plane: &mut Option<SelectedPlane>,
         mut last_cursor_pos: Option<DVec2>,
-    ) -> Option<Plane> {
+    ) -> Option<SelectedPlane> {
         // Here we collect the dynamic numbers for rendering our OpenGL planes
         let (width, height) = target.get_dimensions();
         let width = width as f32;
@@ -187,12 +220,15 @@ impl<'a> PlaneRenderer<'a> {
 
         self.vertices.clear();
 
-        // We iterate through all the planes and generated their OpenGL vertices
-        for (airline, planes) in airlines.iter() {
-            if *airline == selected_airline || selected_airline == Airline::All {
-                let airline_color = self.color_map[*airline];
+        let mut plane_position: DVec2 = DVec2::new(0.0, 0.0);
 
-                for plane in planes.iter() {
+        // We iterate through all the planes and generated their OpenGL vertices
+        for plane in airlines.iter() {
+            let airline = plane.airline;
+            if airline == selected_airline || selected_airline == Airline::All {
+                let airline_color = self.color_map[airline];
+
+                for plane in plane.planes.iter() {
                     if (plane.latitude > lat_bottom && plane.latitude < lat_top)
                         && (plane.longitude > long_left && plane.longitude < long_right)
                     {
@@ -203,12 +239,24 @@ impl<'a> PlaneRenderer<'a> {
                         let offset_x = world_x_to_window_x(world_x, &viewport);
                         let offset_y = world_y_to_window_y(world_y, &viewport);
 
+                        let pixel_x = world_x_to_pixel_x(world_x, &viewport, width as f64);
+                        let pixel_y = world_y_to_pixel_y(world_y, &viewport, height as f64);
+
                         let color = if let Some(last_cursor_pos) = last_cursor_pos {
                             if (offset_x - last_cursor_pos.x as f32).abs() < closest_x
                                 && (offset_y - last_cursor_pos.y as f32).abs() < closest_y
                             {
+                                //Gets the plane position as a DVec2
+                                plane_position = DVec2::new(pixel_x, pixel_y);
+
                                 selected_plane = Some(plane.clone());
 
+                                if let Some(clicked_plane) = clicked_plane {
+                                    //TODO show detials of plane
+                                    clicked_plane.plane = plane.clone();
+                                }
+
+                                // Draw it as white
                                 [1.0, 1.0, 1.0]
                             } else {
                                 airline_color
@@ -255,7 +303,7 @@ impl<'a> PlaneRenderer<'a> {
             )
             .unwrap();
 
-        selected_plane
+        selected_plane.map(|plane| SelectedPlane::new(plane, plane_position, size_of_plane))
     }
 }
 
