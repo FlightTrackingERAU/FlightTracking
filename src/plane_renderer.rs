@@ -27,6 +27,12 @@ impl SelectedPlane {
     }
 }
 
+#[derive(Clone)]
+pub struct LoadingStruct {
+    pub loading: bool,
+    pub plane_selection: Option<SelectedPlane>,
+}
+
 #[derive(Copy, Clone, PartialEq, Eq, Enum)]
 pub enum PlaneType {
     Commercial,
@@ -186,7 +192,7 @@ impl<'a> PlaneRenderer<'a> {
         selected_airline: Airline,
         clicked_plane: &mut Option<SelectedPlane>,
         mut last_cursor_pos: Option<DVec2>,
-    ) -> Option<SelectedPlane> {
+    ) -> LoadingStruct {
         // Here we collect the dynamic numbers for rendering our OpenGL planes
         let (width, height) = target.get_dimensions();
         let width = width as f32;
@@ -195,6 +201,8 @@ impl<'a> PlaneRenderer<'a> {
 
         // From PlaneRequester gets all the airlines and planes
         let airlines = plane_requester.planes_storage();
+
+        let planes_loaded = !airlines.is_empty();
 
         // Viewport of the world
         let viewport = view.get_world_viewport(width as f64, height as f64);
@@ -217,6 +225,9 @@ impl<'a> PlaneRenderer<'a> {
         let mut selected_plane = None;
         let closest_x = 0.01;
         let closest_y = 0.01;
+
+        //Margin error to compare the distance of planes
+        let margin_error_distance = 0.00001;
 
         self.vertices.clear();
 
@@ -262,13 +273,14 @@ impl<'a> PlaneRenderer<'a> {
 
                         //Show details about already clicked planes
                         if let Some(clicked_plane) = clicked_plane {
-                            if clicked_plane.plane.callsign == plane.callsign {
-                                if clicked_plane.plane.latitude != plane.latitude
-                                    && clicked_plane.plane.longitude != plane.longitude
-                                {
-                                    //Updates the new plane data.
-                                    clicked_plane.plane = plane.clone();
-                                }
+                            if clicked_plane.plane.callsign == plane.callsign
+                                && (clicked_plane.plane.latitude - plane.latitude).abs()
+                                    > margin_error_distance
+                                && (clicked_plane.plane.longitude - plane.longitude).abs()
+                                    > margin_error_distance
+                            {
+                                //Updates the new plane data.
+                                clicked_plane.plane = plane.clone();
                             }
                         }
 
@@ -310,7 +322,11 @@ impl<'a> PlaneRenderer<'a> {
             )
             .unwrap();
 
-        selected_plane.map(|plane| SelectedPlane::new(plane, plane_position, size_of_plane))
+        LoadingStruct {
+            loading: planes_loaded,
+            plane_selection: selected_plane
+                .map(|plane| SelectedPlane::new(plane, plane_position, size_of_plane)),
+        }
     }
 }
 

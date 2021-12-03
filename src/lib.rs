@@ -1,11 +1,14 @@
 use std::time::{Duration, Instant};
 
-use conrod_core::{text::Font, widget, widget_ids, Colorable, Positionable, Sizeable, Widget};
+use conrod_core::{
+    text::Font, widget, widget_ids, Color, Colorable, Positionable, Sizeable, Widget,
+};
 use glam::DVec2;
 use glium::Surface;
 
 mod airports;
 mod button_widget;
+mod loading_renderer;
 mod map;
 mod map_renderer;
 mod plane_renderer;
@@ -17,6 +20,7 @@ mod util;
 
 pub use airports::*;
 pub use button_widget::*;
+pub use loading_renderer::LoadingScreenRenderer;
 pub use map::*;
 pub use map_renderer::*;
 pub use plane_renderer::*;
@@ -53,6 +57,7 @@ widget_ids!(pub struct Ids {
     square,
     left_screen_details[],
     hovering_plane_details[],
+    loading_background
 });
 
 use std::fmt::Write;
@@ -112,6 +117,7 @@ pub fn run_app() {
     let mut map_renderer = conrod_glium::Renderer::new(&display).unwrap();
     let mut overlay_renderer = conrod_glium::Renderer::new(&display).unwrap();
     let mut plane_renderer = PlaneRenderer::new(&display);
+    let mut loading_renderer = LoadingScreenRenderer::new(&display);
 
     let mut last_time = std::time::Instant::now();
     let mut frame_time_ms = 0.0;
@@ -139,6 +145,8 @@ pub fn run_app() {
     let mut last_fps_print = Instant::now();
     let mut frame_counter = 0;
     let mut frame_times: Option<(Vec<f64>, Instant)> = None;
+
+    let mut loading = true;
 
     overlay_ids
         .filer_button
@@ -331,144 +339,157 @@ pub fn run_app() {
                             };
                         }
                     }
-                    //========== Draw Buttons ==========
-                    let scope_render_buttons = crate::profile_scope("Render Buttons");
 
-                    let widget_x_position = (overlay_ui.win_w / 2.0) * 0.95 - 25.0;
-                    let widget_y_position = (overlay_ui.win_h / 2.0) * 0.90;
+                    if !loading {
+                        //========== Draw Buttons ==========
+                        let scope_render_buttons = crate::profile_scope("Render Buttons");
 
-                    //========== Draw Airplane Filter Button ==========
-                    if button_widget::draw_circle_with_image(
-                        overlay_ids.airplane_button,
-                        overlay_ui,
-                        airplane_button_ids,
-                        widget_x_position,
-                        widget_y_position,
-                    ) {
-                        filter_enabled = !filter_enabled;
-                    }
+                        let widget_x_position = (overlay_ui.win_w / 2.0) * 0.95 - 25.0;
+                        let widget_y_position = (overlay_ui.win_h / 2.0) * 0.90;
 
-                    //========== Draw weather Button ==========
-                    if button_widget::draw_circle_with_image(
-                        overlay_ids.weather_button,
-                        overlay_ui,
-                        weather_id,
-                        widget_x_position,
-                        widget_y_position - 70.0,
-                    ) {
-                        weather_enabled = !weather_enabled;
-                    }
-                    //========== Draw Debug Button ==========
-                    if button_widget::draw_circle_with_image(
-                        overlay_ids.debug_button,
-                        overlay_ui,
-                        gear_id,
-                        widget_x_position,
-                        widget_y_position - 140.0,
-                    ) {
-                        debug_enabled = !debug_enabled;
-                    }
-                    //========== Draw Airport Button ==========
-                    if button_widget::draw_circle_with_image(
-                        overlay_ids.airport_button,
-                        overlay_ui,
-                        airport_id,
-                        widget_x_position,
-                        widget_y_position - 210.0,
-                    ) {
-                        airport_enabled = !airport_enabled;
-                    }
-                    //========== Filtering buttons enabling/disabling ==========
-                    if filter_enabled {
-                        //========== Draw American Airlines Filter ==========
-                        if ui_filter::draw(
-                            overlay_ids.filer_button[0],
+                        //========== Draw Airplane Filter Button ==========
+                        if button_widget::draw_circle_with_image(
+                            overlay_ids.airplane_button,
                             overlay_ui,
-                            String::from("American Airlines"),
-                            widget_x_position - 130.0,
+                            airplane_button_ids,
+                            widget_x_position,
                             widget_y_position,
                         ) {
-                            selected_airline = Airline::American;
+                            filter_enabled = !filter_enabled;
                         }
-                        //========== Draw Spirit Filter ==========
-                        if ui_filter::draw(
-                            overlay_ids.filer_button[1],
-                            overlay_ui,
-                            String::from("Spirit"),
-                            widget_x_position - 130.0,
-                            widget_y_position - 40.0,
-                        ) {
-                            selected_airline = Airline::Spirit;
-                        }
-                        //========== Draw SouthWest Filter ==========
-                        if ui_filter::draw(
-                            overlay_ids.filer_button[2],
-                            overlay_ui,
-                            String::from("Southwest"),
-                            widget_x_position - 130.0,
-                            widget_y_position - 80.0,
-                        ) {
-                            selected_airline = Airline::Southwest;
-                        }
-                        //========== Draw United Filter ==========
-                        if ui_filter::draw(
-                            overlay_ids.filer_button[3],
-                            overlay_ui,
-                            String::from("United"),
-                            widget_x_position - 130.0,
-                            widget_y_position - 120.0,
-                        ) {
-                            selected_airline = Airline::United
-                        }
-                        //========== Draw Other Filter ==========
-                        if ui_filter::draw(
-                            overlay_ids.filer_button[4],
-                            overlay_ui,
-                            String::from("Other Airlines"),
-                            widget_x_position - 130.0,
-                            widget_y_position - 160.0,
-                        ) {
-                            selected_airline = Airline::Other
-                        }
-                        //========== Draw All Filter ==========
-                        if ui_filter::draw(
-                            overlay_ids.filer_button[5],
-                            overlay_ui,
-                            String::from("All"),
-                            widget_x_position - 130.0,
-                            widget_y_position - 200.0,
-                        ) {
-                            selected_airline = Airline::All
-                        }
-                    }
 
-                    if button_widget::draw_circle_with_image(
-                        overlay_ids.bench_button,
-                        overlay_ui,
-                        bench_id,
-                        widget_x_position,
-                        widget_y_position - 280.0,
-                    ) {
-                        let now = Instant::now();
-                        match frame_times.take() {
-                            Some((vec, start)) => {
-                                println!("Captured {} samples over {:?}", vec.len(), now - start);
-                                let mut data = statrs::statistics::Data::new(vec);
-                                println!("  1st  percentile: {:.2}ms", data.percentile(1));
-                                println!("  5th  percentile: {:.2}ms", data.percentile(5));
-                                println!("  Mean FT:         {:.2}ms", data.percentile(50));
-                                println!("  95th percentile: {:.2}ms", data.percentile(95));
-                                println!("  99th percentile: {:.2}ms", data.percentile(99));
-                                frame_times = None;
+                        //========== Draw weather Button ==========
+                        if button_widget::draw_circle_with_image(
+                            overlay_ids.weather_button,
+                            overlay_ui,
+                            weather_id,
+                            widget_x_position,
+                            widget_y_position - 70.0,
+                        ) {
+                            weather_enabled = !weather_enabled;
+                        }
+                        //========== Draw Debug Button ==========
+                        if button_widget::draw_circle_with_image(
+                            overlay_ids.debug_button,
+                            overlay_ui,
+                            gear_id,
+                            widget_x_position,
+                            widget_y_position - 140.0,
+                        ) {
+                            debug_enabled = !debug_enabled;
+                        }
+                        //========== Draw Airport Button ==========
+                        if button_widget::draw_circle_with_image(
+                            overlay_ids.airport_button,
+                            overlay_ui,
+                            airport_id,
+                            widget_x_position,
+                            widget_y_position - 210.0,
+                        ) {
+                            airport_enabled = !airport_enabled;
+                        }
+                        //========== Filtering buttons enabling/disabling ==========
+                        if filter_enabled {
+                            //========== Draw American Airlines Filter ==========
+                            if ui_filter::draw(
+                                overlay_ids.filer_button[0],
+                                overlay_ui,
+                                String::from("American Airlines"),
+                                widget_x_position - 130.0,
+                                widget_y_position,
+                            ) {
+                                selected_airline = Airline::American;
                             }
-                            None => {
-                                frame_times = Some((Vec::new(), now));
-                                println!("Starting frame profiler");
+                            //========== Draw Spirit Filter ==========
+                            if ui_filter::draw(
+                                overlay_ids.filer_button[1],
+                                overlay_ui,
+                                String::from("Spirit"),
+                                widget_x_position - 130.0,
+                                widget_y_position - 40.0,
+                            ) {
+                                selected_airline = Airline::Spirit;
+                            }
+                            //========== Draw SouthWest Filter ==========
+                            if ui_filter::draw(
+                                overlay_ids.filer_button[2],
+                                overlay_ui,
+                                String::from("Southwest"),
+                                widget_x_position - 130.0,
+                                widget_y_position - 80.0,
+                            ) {
+                                selected_airline = Airline::Southwest;
+                            }
+                            //========== Draw United Filter ==========
+                            if ui_filter::draw(
+                                overlay_ids.filer_button[3],
+                                overlay_ui,
+                                String::from("United"),
+                                widget_x_position - 130.0,
+                                widget_y_position - 120.0,
+                            ) {
+                                selected_airline = Airline::United
+                            }
+                            //========== Draw Other Filter ==========
+                            if ui_filter::draw(
+                                overlay_ids.filer_button[4],
+                                overlay_ui,
+                                String::from("Other Airlines"),
+                                widget_x_position - 130.0,
+                                widget_y_position - 160.0,
+                            ) {
+                                selected_airline = Airline::Other
+                            }
+                            //========== Draw All Filter ==========
+                            if ui_filter::draw(
+                                overlay_ids.filer_button[5],
+                                overlay_ui,
+                                String::from("All"),
+                                widget_x_position - 130.0,
+                                widget_y_position - 200.0,
+                            ) {
+                                selected_airline = Airline::All
                             }
                         }
-                    }
 
-                    scope_render_buttons.end();
+                        if button_widget::draw_circle_with_image(
+                            overlay_ids.bench_button,
+                            overlay_ui,
+                            bench_id,
+                            widget_x_position,
+                            widget_y_position - 280.0,
+                        ) {
+                            let now = Instant::now();
+                            match frame_times.take() {
+                                Some((vec, start)) => {
+                                    println!(
+                                        "Captured {} samples over {:?}",
+                                        vec.len(),
+                                        now - start
+                                    );
+                                    let mut data = statrs::statistics::Data::new(vec);
+                                    println!("  1st  percentile: {:.2}ms", data.percentile(1));
+                                    println!("  5th  percentile: {:.2}ms", data.percentile(5));
+                                    println!("  Mean FT:         {:.2}ms", data.percentile(50));
+                                    println!("  95th percentile: {:.2}ms", data.percentile(95));
+                                    println!("  99th percentile: {:.2}ms", data.percentile(99));
+                                    frame_times = None;
+                                }
+                                None => {
+                                    frame_times = Some((Vec::new(), now));
+                                    println!("Starting frame profiler");
+                                }
+                            }
+                        }
+
+                        scope_render_buttons.end();
+                    } else {
+                        // Render the loading screen
+                        widget::Rectangle::fill([overlay_ui.win_w, overlay_ui.win_h])
+                            .color(Color::Rgba(0.2, 0.2, 0.2, 1.0))
+                            .top_left()
+                            .set(overlay_ids.loading_background, overlay_ui);
+                    }
 
                     frame_counter += 1;
                     let now = Instant::now();
@@ -617,15 +638,29 @@ pub fn run_app() {
 
                 //=========Draw Planes============
 
-                selected_plane = plane_renderer.draw(
-                    &display,
-                    &mut target,
-                    &mut plane_requester,
-                    &viewer,
-                    selected_airline,
-                    &mut clicked_plane,
-                    last_cursor_pos,
-                );
+                loading = !plane_renderer
+                    .draw(
+                        &display,
+                        &mut target,
+                        &mut plane_requester,
+                        &viewer,
+                        selected_airline,
+                        &mut clicked_plane,
+                        last_cursor_pos,
+                    )
+                    .loading;
+
+                selected_plane = plane_renderer
+                    .draw(
+                        &display,
+                        &mut target,
+                        &mut plane_requester,
+                        &viewer,
+                        selected_airline,
+                        &mut clicked_plane,
+                        last_cursor_pos,
+                    )
+                    .plane_selection;
 
                 //=========Draw Overlay===========
 
@@ -634,6 +669,12 @@ pub fn run_app() {
                 overlay_renderer
                     .draw(&display, &mut target, &image_map)
                     .unwrap();
+
+                if loading {
+                    //=========Draw Loading Logo===========
+
+                    loading_renderer.draw(&display, &mut target);
+                }
 
                 target.finish().unwrap();
             }
