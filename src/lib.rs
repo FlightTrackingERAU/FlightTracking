@@ -55,6 +55,8 @@ widget_ids!(pub struct Ids {
     airports[],
     planes[],
     square,
+    left_screen_details[],
+    hovering_plane_details[],
     loading_background
 });
 
@@ -150,6 +152,15 @@ pub fn run_app() {
         .filer_button
         .resize(4, &mut overlay_ui.widget_id_generator());
 
+    //Detects everytime the cursor is above a plane
+    let mut selected_plane: Option<SelectedPlane> = None;
+    //Detects everytime a plane is clicked
+    let mut clicked_plane: Option<SelectedPlane> = None;
+    //Holds the plane size
+    let mut olds_plane_size = 0.0;
+    //Shows the clicked details when plane clicked
+    let mut show_details = false;
+
     event_loop.run(move |event, _, control_flow| {
         use glium::glutin::event::{
             ElementState, Event, MouseButton, MouseScrollDelta, VirtualKeyCode, WindowEvent,
@@ -167,6 +178,17 @@ pub fn run_app() {
                         },
                     ..
                 } => *control_flow = glium::glutin::event_loop::ControlFlow::Exit,
+
+                //Clear detail data from screen when pressing Key: C
+                WindowEvent::KeyboardInput {
+                    input:
+                        glium::glutin::event::KeyboardInput {
+                            virtual_keycode: Some(VirtualKeyCode::C),
+                            ..
+                        },
+                    ..
+                } => show_details = false,
+
                 WindowEvent::MouseWheel { delta, .. } => {
                     let zoom_change = match delta {
                         MouseScrollDelta::LineDelta(_x, y) => *y as f64,
@@ -478,7 +500,120 @@ pub fn run_app() {
                         frame_counter = 0;
                     }
 
-                    //Time calculations
+                    //Display text details of planes
+                    //
+                    //
+                    if left_pressed && selected_plane.is_some() {
+                        clicked_plane = selected_plane.clone();
+                        show_details = true;
+                    }
+
+                    if let Some(hover_plane) = &selected_plane {
+                        //Stores plane airline
+                        let airline = hover_plane.plane.airline;
+                        let plane = &hover_plane.plane;
+                        let plane_type = hover_plane.plane.plane_type;
+
+                        //Where to draw the detail lines
+                        let detail_lines = 5;
+                        let mut i = 0;
+                        let mut buf: util::StringFormatter<512> = util::StringFormatter::new();
+                        overlay_ids
+                            .hovering_plane_details
+                            .resize(detail_lines, &mut overlay_ui.widget_id_generator());
+
+                        //Draw text function
+                        let mut draw_text = |args: std::fmt::Arguments<'_>| {
+                            buf.clear();
+                            buf.write_fmt(args).unwrap();
+                            let plane_text = widget::Text::new(buf.as_str())
+                                .color(conrod_core::color::WHITE)
+                                .left_justify()
+                                .font_size(10)
+                                .font_id(b612_overlay);
+
+                            //let left_side_text = widget::Text::new(buf.as_str())
+                            //    .color(conrod_core::color::WHITE)
+                            //    .left_justify()
+                            //    .font_size(20)
+                            //    .font_id(b612_overlay);
+
+                            let size = hover_plane.size as f64 / 2.0;
+                            let next_to_planex = hover_plane.location.x + 70.0 + size;
+                            let next_to_planey = hover_plane.location.y - 8.0 - i as f64 * 11.0;
+
+                            //let width = left_side_text.get_w(overlay_ui).unwrap();
+
+                            //let left_side_screenx = -overlay_ui.win_w / 2.0 + width / 2.0;
+                            //let left_side_screeny = 0.0 - i as f64 * 20.0;
+
+                            plane_text
+                                .x_y(next_to_planex, next_to_planey)
+                                .set(overlay_ids.hovering_plane_details[i], overlay_ui);
+                            i += 1;
+                        };
+
+                        //Draw details next to planes
+                        draw_text(format_args!("Airline: {}", airline.to_str()));
+                        draw_text(format_args!("Plane Type: {}", plane_type.to_str()));
+                        draw_text(format_args!("CallSign: {}", plane.callsign));
+                        draw_text(format_args!("Lat: {}", plane.latitude));
+                        draw_text(format_args!("Long: {}", plane.longitude));
+                    }
+
+                    if show_details {
+                        if let Some(clicked_plane) = &clicked_plane {
+                            //Stores plane airline
+                            let airline = clicked_plane.plane.airline;
+                            let plane = &clicked_plane.plane;
+                            let plane_type = clicked_plane.plane.plane_type;
+
+                            //Where to draw the detail lines
+                            let detail_lines = 5;
+                            let mut i = 0;
+                            let mut buf: util::StringFormatter<512> = util::StringFormatter::new();
+                            overlay_ids
+                                .left_screen_details
+                                .resize(detail_lines, &mut overlay_ui.widget_id_generator());
+
+                            //Draw text function
+                            let mut draw_text = |args: std::fmt::Arguments<'_>| {
+                                buf.clear();
+                                buf.write_fmt(args).unwrap();
+                                let plane_text = widget::Text::new(buf.as_str())
+                                    .color(conrod_core::color::WHITE)
+                                    .left_justify()
+                                    .font_size(20)
+                                    .font_id(b612_overlay);
+
+                                //let left_side_text = widget::Text::new(buf.as_str())
+                                //    .color(conrod_core::color::WHITE)
+                                //    .left_justify()
+                                //    .font_size(20)
+                                //    .font_id(b612_overlay);
+
+                                olds_plane_size = plane_text.get_w(overlay_ui).unwrap();
+                                let width = olds_plane_size;
+
+                                let left_side_screenx = -overlay_ui.win_w / 2.0 + width / 2.0;
+                                let left_side_screeny = 0.0 - i as f64 * 20.0;
+
+                                plane_text
+                                    .x_y(left_side_screenx, left_side_screeny)
+                                    .set(overlay_ids.left_screen_details[i], overlay_ui);
+                                i += 1;
+                            };
+
+                            //Draw details next to planes
+                            draw_text(format_args!("Airline: {}", airline.to_str()));
+                            draw_text(format_args!("Plane Type: {}", plane_type.to_str()));
+                            draw_text(format_args!("CallSign: {}", plane.callsign));
+                            draw_text(format_args!("Lat: {}", plane.latitude));
+                            draw_text(format_args!("Long: {}", plane.longitude));
+                        }
+                    }
+
+                    // Time calculations
                     let now = std::time::Instant::now();
                     frame_time_ms = (now - last_time).as_nanos() as f64 / 1_000_000.0;
                     if let Some((vec, _)) = &mut frame_times {
@@ -490,9 +625,8 @@ pub fn run_app() {
                 }
             }
             glium::glutin::event::Event::RedrawRequested(_) => {
-                //render and swap buffers
+                // Render and swap buffers
                 let map_primitives = map_ui.draw();
-                let overlay_primitives = overlay_ui.draw();
 
                 let mut target = display.draw();
                 target.clear_color(0.21, 0.32, 0.4, 1.0);
@@ -504,16 +638,33 @@ pub fn run_app() {
 
                 //=========Draw Planes============
 
-                loading = !plane_renderer.draw(
-                    &display,
-                    &mut target,
-                    &mut plane_requester,
-                    &viewer,
-                    selected_airline,
-                );
+                loading = !plane_renderer
+                    .draw(
+                        &display,
+                        &mut target,
+                        &mut plane_requester,
+                        &viewer,
+                        selected_airline,
+                        &mut clicked_plane,
+                        last_cursor_pos,
+                    )
+                    .loading;
+
+                selected_plane = plane_renderer
+                    .draw(
+                        &display,
+                        &mut target,
+                        &mut plane_requester,
+                        &viewer,
+                        selected_airline,
+                        &mut clicked_plane,
+                        last_cursor_pos,
+                    )
+                    .plane_selection;
 
                 //=========Draw Overlay===========
 
+                let overlay_primitives = overlay_ui.draw();
                 overlay_renderer.fill(&display, overlay_primitives, &image_map);
                 overlay_renderer
                     .draw(&display, &mut target, &image_map)
