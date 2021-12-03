@@ -51,7 +51,8 @@ widget_ids!(pub struct Ids {
     airports[],
     planes[],
     square,
-    details[]
+    left_screen_details[],
+    hovering_plane_details[],
 });
 
 use std::fmt::Write;
@@ -143,10 +144,13 @@ pub fn run_app() {
         .filer_button
         .resize(4, &mut overlay_ui.widget_id_generator());
 
+    //Detects everytime the cursor is above a plane
     let mut selected_plane: Option<SelectedPlane> = None;
+    //Detects everytime a plane is clicked
     let mut clicked_plane: Option<SelectedPlane> = None;
+    //Holds the plane size
     let mut olds_plane_size = 0.0;
-    let mut plane_was_selected = false;
+    //Shows the clicked details when plane clicked
     let mut show_details = false;
 
     event_loop.run(move |event, _, control_flow| {
@@ -166,6 +170,17 @@ pub fn run_app() {
                         },
                     ..
                 } => *control_flow = glium::glutin::event_loop::ControlFlow::Exit,
+
+                //Clear detail data from screen when pressing Key: C
+                WindowEvent::KeyboardInput {
+                    input:
+                        glium::glutin::event::KeyboardInput {
+                            virtual_keycode: Some(VirtualKeyCode::C),
+                            ..
+                        },
+                    ..
+                } => show_details = false,
+
                 WindowEvent::MouseWheel { delta, .. } => {
                     let zoom_change = match delta {
                         MouseScrollDelta::LineDelta(_x, y) => *y as f64,
@@ -467,6 +482,10 @@ pub fn run_app() {
                     //Display text details of planes
                     //
                     //
+                    if left_pressed && selected_plane.is_some() {
+                        clicked_plane = selected_plane.clone();
+                        show_details = true;
+                    }
 
                     if let Some(hover_plane) = &selected_plane {
                         //Stores plane airline
@@ -479,7 +498,7 @@ pub fn run_app() {
                         let mut i = 0;
                         let mut buf: util::StringFormatter<512> = util::StringFormatter::new();
                         overlay_ids
-                            .details
+                            .hovering_plane_details
                             .resize(detail_lines, &mut overlay_ui.widget_id_generator());
 
                         //Draw text function
@@ -509,7 +528,7 @@ pub fn run_app() {
 
                             plane_text
                                 .x_y(next_to_planex, next_to_planey)
-                                .set(overlay_ids.details[i], overlay_ui);
+                                .set(overlay_ids.hovering_plane_details[i], overlay_ui);
                             i += 1;
                         };
 
@@ -533,7 +552,7 @@ pub fn run_app() {
                             let mut i = 0;
                             let mut buf: util::StringFormatter<512> = util::StringFormatter::new();
                             overlay_ids
-                                .details
+                                .left_screen_details
                                 .resize(detail_lines, &mut overlay_ui.widget_id_generator());
 
                             //Draw text function
@@ -560,7 +579,7 @@ pub fn run_app() {
 
                                 plane_text
                                     .x_y(left_side_screenx, left_side_screeny)
-                                    .set(overlay_ids.details[i], overlay_ui);
+                                    .set(overlay_ids.left_screen_details[i], overlay_ui);
                                 i += 1;
                             };
 
@@ -571,15 +590,6 @@ pub fn run_app() {
                             draw_text(format_args!("Lat: {}", plane.latitude));
                             draw_text(format_args!("Long: {}", plane.longitude));
                         }
-                    }
-
-                    if left_pressed && selected_plane.is_some() {
-                        clicked_plane = selected_plane.clone();
-                        show_details = true;
-                    }
-                    if left_pressed && selected_plane.is_none() {
-                        clicked_plane = None;
-                        show_details = false;
                     }
 
                     // Time calculations

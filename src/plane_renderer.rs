@@ -251,11 +251,6 @@ impl<'a> PlaneRenderer<'a> {
 
                                 selected_plane = Some(plane.clone());
 
-                                if let Some(clicked_plane) = clicked_plane {
-                                    //TODO show detials of plane
-                                    clicked_plane.plane = plane.clone();
-                                }
-
                                 // Draw it as white
                                 [1.0, 1.0, 1.0]
                             } else {
@@ -264,6 +259,18 @@ impl<'a> PlaneRenderer<'a> {
                         } else {
                             airline_color
                         };
+
+                        //Show details about already clicked planes
+                        if let Some(clicked_plane) = clicked_plane {
+                            if clicked_plane.plane.callsign == plane.callsign {
+                                if clicked_plane.plane.latitude != plane.latitude
+                                    && clicked_plane.plane.longitude != plane.longitude
+                                {
+                                    //Updates the new plane data.
+                                    clicked_plane.plane = plane.clone();
+                                }
+                            }
+                        }
 
                         let offset = [offset_x, offset_y];
 
