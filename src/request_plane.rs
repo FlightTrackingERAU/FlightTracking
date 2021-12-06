@@ -171,10 +171,10 @@ async fn request_plane_data() -> Result<Vec<PlaneBody>, Error> {
                             _ => {
                                 //Try to match dynamic airlines
                                 for (dyn_airline, dyn_plane_type) in &dynamic_plane_types {
-                                    println!(
-                                        "Matched callsign: {} - {}",
-                                        callsign_header, callsign
-                                    );
+                                    // println!(
+                                    //     "Matched callsign: {} - {}",
+                                    //     callsign_header, callsign
+                                    // );
                                     if dyn_airline.callsign == callsign_header {
                                         maybe_airline = Some(Airline::Dynamic(dyn_airline.clone()));
                                         maybe_plane_type = Some(*dyn_plane_type);
@@ -262,6 +262,10 @@ EGF - American Eagle Airlines - airline
 IBK - Norwegian Air International - airline
 AMX - Aeromexico - airline
 ERU - Embry_Riddle - trainer
+SCX - Sun Country Airlines - airline
+VXP - Avelo Airlines - airline
+EJA - NetJets - business
+RPA - Republic Airlines - airline
 "#;
     for line in data.lines() {
         if line.is_empty() {
@@ -277,6 +281,7 @@ ERU - Embry_Riddle - trainer
             "airline" => PlaneType::Commercial,
             "cargo" => PlaneType::Cargo,
             "trainer" => PlaneType::Trainer,
+            "business" => PlaneType::Business,
             s => unreachable!(s),
         };
 

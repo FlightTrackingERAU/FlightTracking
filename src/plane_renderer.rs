@@ -38,6 +38,7 @@ pub enum PlaneType {
     Commercial,
     Trainer,
     Cargo,
+    Business,
     Unknown,
 }
 
@@ -47,6 +48,7 @@ impl PlaneType {
             PlaneType::Commercial => "Commercial",
             PlaneType::Cargo => "Cargo",
             PlaneType::Trainer => "Trainer",
+            PlaneType::Business => "Business",
             PlaneType::Unknown => "Unkown",
         }
     }
