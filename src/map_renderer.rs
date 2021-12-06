@@ -2,6 +2,7 @@ use conrod_core::{
     widget::{id::List, Image, Line, Text},
     Colorable, Positionable, Sizeable, UiCell, Widget,
 };
+use glam::DVec2;
 
 use crate::tile::{self, *};
 
@@ -57,6 +58,7 @@ fn line_distance_for_viewport_degrees(world_range: f64, dimension_size: f64) -> 
             return distance;
         }
     }
+
     let power = (mapped_range / DISTANCE_SCALE).log10();
     let part = power.rem_euclid(1.0);
     //We know the scale and where the number falls within the exponential range
@@ -140,9 +142,11 @@ pub fn render_tile_set(
     let tile_size = pipeline.tile_size().unwrap();
 
     let it = view.tile_iter(tile_size, ui.win_w, ui.win_h);
-    let size = it.tile_size;
+    let mut size = it.tile_size;
     let offset = it.tile_offset;
-    let zoom_level = it.tile_zoom;
+    let mut zoom_level = it.tile_zoom;
+    let half_width = ui.win_w / 2.0;
+    let half_height = ui.win_h / 2.0;
 
     let tiles_vertically = it.tiles_vertically;
 
@@ -153,32 +157,112 @@ pub fn render_tile_set(
         guard.zoom = zoom_level;
     }
 
-    ids.resize(tiles.len(), &mut ui.widget_id_generator());
-
     // The conrod coordinate system places 0, 0 in the center of the window. Up is the positive y
     // axis, and right is the positive x axis.
     // The units are in terms of screen pixels, so on a window with a size of 1000x500 the point
     // (500, 250) would be the top right corner
     let scope_render_tiles = crate::profile_scope("Render Tiles");
+
+    let mut draw_layers = Vec::new();
+    let mut missing = RenderLayer::new(size, zoom_level);
+
+    // Iteratre through each initial tile
     for (i, tile) in tiles.iter().enumerate() {
         let tile_x = i / tiles_vertically as usize;
         let tile_y = i % tiles_vertically as usize;
 
-        let half_width = ui.win_w / 2.0;
-        let half_height = ui.win_h / 2.0;
         let x = offset.x + tile_x as f64 * size.x - half_width + size.x / 2.0;
         let y = offset.y - (tile_y as f64 * size.y) + half_height + size.y / 2.0;
 
-        let tile_id = TileId::new(tile.0, tile.1, zoom_level);
+        // Set each one as missing so that we can just use the later loop for everything
+        missing.tiles.push((x, y, tile.0, tile.1));
+    }
 
-        if let Some(tile) = pipeline.get_tile(tile_id) {
-            Image::new(tile)
-                .x_y(x, y)
-                .w_h(size.x, size.y)
-                .set(ids[i], ui);
+    while !missing.tiles.is_empty() && zoom_level > 0 {
+        let mut newest_layer = RenderLayer::new(size, zoom_level);
+        let mut new_missing = RenderLayer::new(size * 2.0, zoom_level - 1);
+
+        for (x, y, tile_x, tile_y) in missing.tiles {
+            let tile_id = TileId::new(tile_x, tile_y, missing.zoom_level);
+
+            if pipeline.get_tile(tile_id).is_some() {
+                let data = (x, y, tile_x, tile_y);
+                newest_layer.tiles.push(data);
+            } else {
+                // If the tile isn't present, add the one that should replace it
+                let inner_offset_x = tile_x % 2;
+                let inner_offset_y = tile_y % 2;
+                let tile_x = tile_x / 2;
+                let tile_y = tile_y / 2;
+
+                let x = x - inner_offset_x as f64 * size.x + size.x / 2.0;
+                let y = y + inner_offset_y as f64 * size.y - size.y / 2.0;
+
+                let data = (x, y, tile_x, tile_y);
+
+                new_missing.tiles.push(data);
+            }
+        }
+
+        zoom_level -= 1;
+        size *= 2.0;
+
+        draw_layers.push(newest_layer);
+
+        missing = new_missing;
+    }
+
+    // We now need to account for more tiles than we currently expect to display
+    let mut tile_count = 0;
+
+    for draw_layer in draw_layers.iter() {
+        tile_count += draw_layer.tiles.len();
+    }
+
+    // Now we resize
+    ids.resize(tile_count, &mut ui.widget_id_generator());
+
+    // Otherwise this would draw all of the lower-res images on top of the regular res ones instead
+    // of behind like we want
+    draw_layers.reverse();
+
+    let mut id_counter = 0;
+
+    for draw_layer in draw_layers {
+        let size = draw_layer.size;
+        let zoom_level = draw_layer.zoom_level;
+
+        for (x, y, tile_x, tile_y) in draw_layer.tiles {
+            let tile_id = TileId::new(tile_x, tile_y, zoom_level);
+
+            if let Some(tile) = pipeline.get_tile(tile_id) {
+                Image::new(tile)
+                    .x_y(x, y)
+                    .w_h(size.x, size.y)
+                    .set(ids[id_counter], ui);
+
+                id_counter += 1;
+            }
         }
     }
+
     scope_render_tiles.end();
+}
+
+struct RenderLayer {
+    pub size: DVec2,
+    pub zoom_level: u32,
+    pub tiles: Vec<(f64, f64, u32, u32)>,
+}
+
+impl RenderLayer {
+    pub fn new(size: DVec2, zoom_level: u32) -> Self {
+        Self {
+            size,
+            zoom_level,
+            tiles: Vec::new(),
+        }
+    }
 }
 
 /// Draws the lines of latitude and longitude onto the map

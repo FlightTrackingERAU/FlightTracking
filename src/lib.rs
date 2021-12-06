@@ -57,7 +57,7 @@ widget_ids!(pub struct Ids {
     square,
     left_screen_details[],
     hovering_plane_details[],
-    loading_background
+    loading_background,
 });
 
 use std::fmt::Write;
@@ -673,7 +673,7 @@ pub fn run_app() {
                 if loading {
                     //=========Draw Loading Logo===========
 
-                    loading_renderer.draw(&display, &mut target);
+                    loading_renderer.draw(&display, &mut target, frame_time_ms);
                 }
 
                 target.finish().unwrap();
