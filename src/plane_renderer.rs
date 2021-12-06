@@ -279,7 +279,9 @@ impl<'a> PlaneRenderer<'a> {
                     }
                 }
                 _ => {
-                    if selected_airline == BasicAirline::All || selected_airline == BasicAirline::Other {
+                    if selected_airline == BasicAirline::All
+                        || selected_airline == BasicAirline::Other
+                    {
                         Some([0.0, 0.0, 0.0])
                     } else {
                         None
