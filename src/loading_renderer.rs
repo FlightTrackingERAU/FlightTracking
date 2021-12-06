@@ -96,7 +96,12 @@ impl<'a> LoadingScreenRenderer<'a> {
     }
 
     /// Draw the rotating logo on the OpenGL Frame that is provided
-    pub fn draw(&mut self, display: &glium::Display, target: &mut glium::Frame) {
+    pub fn draw(
+        &mut self,
+        display: &glium::Display,
+        target: &mut glium::Frame,
+        frame_time_ms: f64,
+    ) {
         // Here we collect the dynamic numbers for rendering our OpenGL planes
         let (width, height) = target.get_dimensions();
         let width = width as f32;
@@ -129,8 +134,8 @@ impl<'a> LoadingScreenRenderer<'a> {
             )
             .unwrap();
 
-        self.logo_angle += self.logo_angle_delta;
-        self.logo_angle_delta += self.logo_angle_delta * 0.002;
+        self.logo_angle += self.logo_angle_delta * frame_time_ms as f32 / 2.0;
+        self.logo_angle_delta += self.logo_angle_delta * 0.002 * frame_time_ms as f32 / 2.0;
 
         if self.logo_angle > std::f32::consts::TAU {
             self.logo_angle -= std::f32::consts::TAU;
