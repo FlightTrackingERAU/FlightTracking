@@ -36,41 +36,77 @@ pub struct LoadingStruct {
 #[derive(Copy, Clone, PartialEq, Eq, Enum)]
 pub enum PlaneType {
     Commercial,
+    Trainer,
     Cargo,
+    Business,
     Unknown,
 }
+
 impl PlaneType {
     pub fn to_str(self) -> &'static str {
         match self {
             PlaneType::Commercial => "Commercial",
             PlaneType::Cargo => "Cargo",
+            PlaneType::Trainer => "Trainer",
+            PlaneType::Business => "Business",
             PlaneType::Unknown => "Unknown",
         }
     }
 }
+
+#[derive(Clone, PartialEq, Eq)]
+pub enum Airline {
+    Basic(BasicAirline),
+    Dynamic(DynamicAirline),
+    Unknown,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct DynamicAirline {
+    pub callsign: String,
+    pub name: String,
+}
+
 /// Describes a few specific airlines, and also the selections of All or Other which the user can
 /// filter by
 #[derive(Copy, Clone, PartialEq, Eq, Enum)]
-pub enum Airline {
+pub enum BasicAirline {
     American,
     Spirit,
     Southwest,
     United,
+    Delta,
     All,
     Other,
-    Delta,
+}
+
+impl BasicAirline {
+    pub fn to_str(&self) -> &str {
+        match self {
+            BasicAirline::American => "American Airlines",
+            BasicAirline::Spirit => "Spirit Airlines",
+            BasicAirline::Southwest => "Southwest Airlines",
+            BasicAirline::United => "United Airlines",
+            BasicAirline::Delta => "Delta Airlines",
+            BasicAirline::All => unreachable!(),
+            BasicAirline::Other => unreachable!(),
+        }
+    }
 }
 
 impl Airline {
-    pub fn to_str(self) -> &'static str {
+    pub fn to_str(&self) -> &str {
         match self {
-            Airline::American => "American Airlines",
-            Airline::Spirit => "Spirit Airlines",
-            Airline::Southwest => "Southwest Airlines",
-            Airline::United => "United Airlines",
-            Airline::Delta => "Delta Airlines",
-            _ => "Unknown",
+            Airline::Basic(basic) => basic.to_str(),
+            Airline::Unknown => "Unknown",
+            Airline::Dynamic(s) => s.name.as_str(),
         }
+    }
+}
+
+impl From<BasicAirline> for Airline {
+    fn from(basic: BasicAirline) -> Self {
+        Airline::Basic(basic)
     }
 }
 
@@ -92,7 +128,7 @@ pub struct PlaneRenderer<'a> {
     pub vertices: Vec<Vertex>,
     pub texture: SrgbTexture2d,
     pub indices: NoIndices,
-    pub color_map: EnumMap<Airline, [f32; 3]>,
+    pub color_map: EnumMap<BasicAirline, [f32; 3]>,
 }
 
 impl<'a> PlaneRenderer<'a> {
@@ -165,10 +201,10 @@ impl<'a> PlaneRenderer<'a> {
         };
 
         let color_map = enum_map! {
-            Airline::American => [3.0 / 255.0, 5.0 / 255.0, 135.0 / 255.0],
-            Airline::Spirit => [1.0, 1.0, 0.0],
-            Airline::United => [146.0 / 255.0, 182.0 / 255.0, 240.0 / 255.0],
-            Airline::Southwest => [229.0 / 255.0, 29.0 / 255.0, 35.0 / 255.0],
+            BasicAirline::American => [3.0 / 255.0, 5.0 / 255.0, 135.0 / 255.0],
+            BasicAirline::Spirit => [1.0, 1.0, 0.0],
+            BasicAirline::United => [146.0 / 255.0, 182.0 / 255.0, 240.0 / 255.0],
+            BasicAirline::Southwest => [229.0 / 255.0, 29.0 / 255.0, 35.0 / 255.0],
             _ => [0.0, 0.0, 0.0]
         };
 
@@ -189,7 +225,7 @@ impl<'a> PlaneRenderer<'a> {
         target: &mut glium::Frame,
         plane_requester: &mut PlaneRequester,
         view: &crate::TileView,
-        selected_airline: Airline,
+        selected_airline: BasicAirline,
         clicked_plane: &mut Option<SelectedPlane>,
         mut last_cursor_pos: Option<DVec2>,
     ) -> LoadingStruct {
@@ -235,10 +271,27 @@ impl<'a> PlaneRenderer<'a> {
 
         // We iterate through all the planes and generated their OpenGL vertices
         for plane in airlines.iter() {
-            let airline = plane.airline;
-            if airline == selected_airline || selected_airline == Airline::All {
-                let airline_color = self.color_map[airline];
+            let airline = &plane.airline;
+            let color = match airline {
+                Airline::Basic(airline) => {
+                    if airline == &selected_airline || selected_airline == BasicAirline::All {
+                        Some(self.color_map[airline.clone()])
+                    } else {
+                        None
+                    }
+                }
+                _ => {
+                    if selected_airline == BasicAirline::All
+                        || selected_airline == BasicAirline::Other
+                    {
+                        Some([0.0, 0.0, 0.0])
+                    } else {
+                        None
+                    }
+                } //Only show dynamic airlines when showing all planes
+            };
 
+            if let Some(color) = color {
                 for plane in plane.planes.iter() {
                     if (plane.latitude > lat_bottom && plane.latitude < lat_top)
                         && (plane.longitude > long_left && plane.longitude < long_right)
@@ -265,10 +318,10 @@ impl<'a> PlaneRenderer<'a> {
                                 // Draw it as white
                                 [1.0, 1.0, 1.0]
                             } else {
-                                airline_color
+                                color
                             }
                         } else {
-                            airline_color
+                            color
                         };
 
                         //Show details about already clicked planes
