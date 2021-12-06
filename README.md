@@ -1,8 +1,8 @@
 # Flight Tracking ERAU SE300 
 [![Crates.io](https://img.shields.io/crates/v/flight_tracking_erau_se300.svg)](https://crates.io/crates/flight_tracking_erau_se300) 
-![build](https://shields.io/github/workflow/status/FlightTrackingERAU/FlightTracking/CI/develop) 
-![docs.rs](https://img.shields.io/docsrs/flight_tracking_erau_se300)
- ![License](https://img.shields.io/github/license/FlightTrackingERAU/FlightTracking)
+[![build](https://shields.io/github/workflow/status/FlightTrackingERAU/FlightTracking/CI/develop)](https://github.com/FlightTrackingERAU/FlightTracking/actions)
+[![docs.rs](https://img.shields.io/docsrs/flight_tracking_erau_se300)](https://docs.rs/flight_tracking_erau_se300/0.3.0/flight_tracking_erau_se300/)
+ [![License](https://img.shields.io/crates/l/flight_tracking_erau_se300)](https://github.com/FlightTrackingERAU/FlightTracking/blob/master/LICENSE)
 [![Dependency](https://deps.rs/repo/github/FlightTrackingERAU/FlightTracking/status.svg)](https://deps.rs/repo/github/FlightTrackingERAU/FlightTracking)
 
 ## Description
@@ -17,21 +17,21 @@ Rust: https://www.rust-lang.org/
 ## Implementations
 * Zoom: 
 
-![Zooming Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/feature/readme/examples/gif/ezgif.com-gif-maker.gif)
+![Zooming Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/master/examples/gif/ezgif.com-gif-maker.gif)
 
 
 * Filter Planes by Airline
 
-![Zooming Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/feature/readme/examples/gif/airline-filter.gif)
+![Filter Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/master/examples/gif/airline-filter.gif)
 
 
 * Toggle Weather on/off
 
-![Zooming Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/feature/readme/examples/gif/weather-toggle.gif)
+![Weather Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/master/examples/gif/weather-toggle.gif)
 
 * Toggle Airports on/off:
 
-![Airport On/Off Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/feature/readme/examples/gif/airport_toggle.gif)
+![Airport On/Off Gif](https://github.com/FlightTrackingERAU/FlightTracking/blob/master/examples/gif/airport_toggle.gif)
 
 # Guide
 

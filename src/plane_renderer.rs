@@ -1,23 +1,113 @@
 use std::io::Cursor;
 
 use enum_map::{enum_map, Enum, EnumMap};
+use glam::DVec2;
 use glium::{
     implement_vertex, index::NoIndices, texture::SrgbTexture2d, uniform, DrawParameters, Program,
     Surface,
 };
 
-use crate::{util, PlaneRequester};
+use crate::{map, util, world_x_to_pixel_x, world_y_to_pixel_y, Plane, PlaneRequester};
+
+///Normal body of plane we select
+#[derive(Clone)]
+pub struct SelectedPlane {
+    pub plane: Plane,
+    pub location: DVec2,
+    pub size: f32,
+}
+
+impl SelectedPlane {
+    pub fn new(plane: Plane, location: DVec2, size: f32) -> Self {
+        SelectedPlane {
+            plane,
+            location,
+            size,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct LoadingStruct {
+    pub planes_loaded: bool,
+    pub plane_selection: Option<SelectedPlane>,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Enum)]
+pub enum PlaneType {
+    Commercial,
+    Trainer,
+    Cargo,
+    Business,
+    Unknown,
+}
+
+impl PlaneType {
+    pub fn to_str(self) -> &'static str {
+        match self {
+            PlaneType::Commercial => "Commercial",
+            PlaneType::Cargo => "Cargo",
+            PlaneType::Trainer => "Trainer",
+            PlaneType::Business => "Business",
+            PlaneType::Unknown => "Unknown",
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub enum Airline {
+    Basic(BasicAirline),
+    Dynamic(DynamicAirline),
+    Unknown,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct DynamicAirline {
+    pub callsign: String,
+    pub name: String,
+}
 
 /// Describes a few specific airlines, and also the selections of All or Other which the user can
 /// filter by
 #[derive(Copy, Clone, PartialEq, Eq, Enum)]
-pub enum Airline {
+pub enum BasicAirline {
     American,
     Spirit,
     Southwest,
     United,
+    Delta,
     All,
     Other,
+}
+
+impl BasicAirline {
+    pub fn to_str(&self) -> &str {
+        match self {
+            BasicAirline::American => "American Airlines",
+            BasicAirline::Spirit => "Spirit Airlines",
+            BasicAirline::Southwest => "Southwest Airlines",
+            BasicAirline::United => "United Airlines",
+            BasicAirline::Delta => "Delta Airlines",
+            BasicAirline::All => unreachable!(),
+            BasicAirline::Other => unreachable!(),
+        }
+    }
+}
+
+impl Airline {
+    pub fn to_str(&self) -> &str {
+        match self {
+            Airline::Basic(basic) => basic.to_str(),
+            Airline::Unknown => "Unknown",
+            Airline::Dynamic(s) => s.name.as_str(),
+        }
+    }
+}
+
+impl From<BasicAirline> for Airline {
+    fn from(basic: BasicAirline) -> Self {
+        Airline::Basic(basic)
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -38,7 +128,7 @@ pub struct PlaneRenderer<'a> {
     pub vertices: Vec<Vertex>,
     pub texture: SrgbTexture2d,
     pub indices: NoIndices,
-    pub color_map: EnumMap<Airline, [f32; 3]>,
+    pub color_map: EnumMap<BasicAirline, [f32; 3]>,
 }
 
 impl<'a> PlaneRenderer<'a> {
@@ -111,11 +201,11 @@ impl<'a> PlaneRenderer<'a> {
         };
 
         let color_map = enum_map! {
-            Airline::American => [3.0 / 255.0, 5.0 / 255.0, 135.0 / 255.0],
-            Airline::Spirit => [1.0, 1.0, 0.0],
-            Airline::United => [146.0 / 255.0, 182.0 / 255.0, 240.0 / 255.0],
-            Airline::Southwest => [229.0 / 255.0, 29.0 / 255.0, 35.0 / 255.0],
-            Airline::All | Airline::Other => [0.0, 0.0, 0.0]
+            BasicAirline::American => [3.0 / 255.0, 5.0 / 255.0, 135.0 / 255.0],
+            BasicAirline::Spirit => [1.0, 1.0, 0.0],
+            BasicAirline::United => [146.0 / 255.0, 182.0 / 255.0, 240.0 / 255.0],
+            BasicAirline::Southwest => [229.0 / 255.0, 29.0 / 255.0, 35.0 / 255.0],
+            _ => [0.0, 0.0, 0.0]
         };
 
         Self {
@@ -135,8 +225,10 @@ impl<'a> PlaneRenderer<'a> {
         target: &mut glium::Frame,
         plane_requester: &mut PlaneRequester,
         view: &crate::TileView,
-        selected_airline: Airline,
-    ) {
+        selected_airline: BasicAirline,
+        clicked_plane: &mut Option<SelectedPlane>,
+        mut last_cursor_pos: Option<DVec2>,
+    ) -> LoadingStruct {
         // Here we collect the dynamic numbers for rendering our OpenGL planes
         let (width, height) = target.get_dimensions();
         let width = width as f32;
@@ -145,6 +237,8 @@ impl<'a> PlaneRenderer<'a> {
 
         // From PlaneRequester gets all the airlines and planes
         let airlines = plane_requester.planes_storage();
+
+        let planes_loaded = !airlines.is_empty();
 
         // Viewport of the world
         let viewport = view.get_world_viewport(width as f64, height as f64);
@@ -157,15 +251,48 @@ impl<'a> PlaneRenderer<'a> {
         let zoom = view.get_zoom() as f32;
 
         let size_of_plane = 1.5_f32.powf(zoom) / 30.0;
+        if let Some(pos) = last_cursor_pos {
+            let cursor_x = map(0.0, width as f64, pos.x, -1.0, 1.0) / dpi_factor as f64;
+            let cursor_y = map(0.0, height as f64, pos.y, 1.0, -1.0) / dpi_factor as f64;
+
+            last_cursor_pos = Some(DVec2::new(cursor_x, cursor_y));
+        }
+
+        let mut selected_plane = None;
+        let closest_x = 0.01;
+        let closest_y = 0.01;
+
+        //Margin error to compare the distance of planes
+        let margin_error_distance = 0.00001;
 
         self.vertices.clear();
 
-        // We iterate through all the planes and generated their OpenGL vertices
-        for (airline, planes) in airlines.iter() {
-            if *airline == selected_airline || selected_airline == Airline::All {
-                let color = self.color_map[*airline];
+        let mut plane_position: DVec2 = DVec2::new(0.0, 0.0);
 
-                for plane in planes.iter() {
+        // We iterate through all the planes and generated their OpenGL vertices
+        for plane in airlines.iter() {
+            let airline = &plane.airline;
+            let color = match airline {
+                Airline::Basic(airline) => {
+                    if airline == &selected_airline || selected_airline == BasicAirline::All {
+                        Some(self.color_map[airline.clone()])
+                    } else {
+                        None
+                    }
+                }
+                _ => {
+                    if selected_airline == BasicAirline::All
+                        || selected_airline == BasicAirline::Other
+                    {
+                        Some([0.0, 0.0, 0.0])
+                    } else {
+                        None
+                    }
+                } //Only show dynamic airlines when showing all planes
+            };
+
+            if let Some(color) = color {
+                for plane in plane.planes.iter() {
                     if (plane.latitude > lat_bottom && plane.latitude < lat_top)
                         && (plane.longitude > long_left && plane.longitude < long_right)
                     {
@@ -175,6 +302,40 @@ impl<'a> PlaneRenderer<'a> {
 
                         let offset_x = world_x_to_window_x(world_x, &viewport);
                         let offset_y = world_y_to_window_y(world_y, &viewport);
+
+                        let pixel_x = world_x_to_pixel_x(world_x, &viewport, width as f64);
+                        let pixel_y = world_y_to_pixel_y(world_y, &viewport, height as f64);
+
+                        let color = if let Some(last_cursor_pos) = last_cursor_pos {
+                            if (offset_x - last_cursor_pos.x as f32).abs() < closest_x
+                                && (offset_y - last_cursor_pos.y as f32).abs() < closest_y
+                            {
+                                //Gets the plane position as a DVec2
+                                plane_position = DVec2::new(pixel_x, pixel_y);
+
+                                selected_plane = Some(plane.clone());
+
+                                // Draw it as white
+                                [1.0, 1.0, 1.0]
+                            } else {
+                                color
+                            }
+                        } else {
+                            color
+                        };
+
+                        //Show details about already clicked planes
+                        if let Some(clicked_plane) = clicked_plane {
+                            if clicked_plane.plane.callsign == plane.callsign
+                                && (clicked_plane.plane.latitude - plane.latitude).abs()
+                                    > margin_error_distance
+                                && (clicked_plane.plane.longitude - plane.longitude).abs()
+                                    > margin_error_distance
+                            {
+                                //Updates the new plane data.
+                                clicked_plane.plane = plane.clone();
+                            }
+                        }
 
                         let offset = [offset_x, offset_y];
 
@@ -213,6 +374,12 @@ impl<'a> PlaneRenderer<'a> {
                 &self.draw_parameters,
             )
             .unwrap();
+
+        LoadingStruct {
+            planes_loaded,
+            plane_selection: selected_plane
+                .map(|plane| SelectedPlane::new(plane, plane_position, size_of_plane)),
+        }
     }
 }
 

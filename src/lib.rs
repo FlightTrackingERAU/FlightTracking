@@ -1,11 +1,14 @@
 use std::time::{Duration, Instant};
 
-use conrod_core::{text::Font, widget, widget_ids, Colorable, Positionable, Sizeable, Widget};
+use conrod_core::{
+    text::Font, widget, widget_ids, Color, Colorable, Positionable, Sizeable, Widget,
+};
 use glam::DVec2;
 use glium::Surface;
 
 mod airports;
 mod button_widget;
+mod loading_renderer;
 mod map;
 mod map_renderer;
 mod plane_renderer;
@@ -17,6 +20,7 @@ mod util;
 
 pub use airports::*;
 pub use button_widget::*;
+pub use loading_renderer::LoadingScreenRenderer;
 pub use map::*;
 pub use map_renderer::*;
 pub use plane_renderer::*;
@@ -50,7 +54,10 @@ widget_ids!(pub struct Ids {
     filer_button[],
     airports[],
     planes[],
-    square
+    square,
+    left_screen_details[],
+    hovering_plane_details[],
+    loading_background,
 });
 
 use std::fmt::Write;
@@ -110,6 +117,7 @@ pub fn run_app() {
     let mut map_renderer = conrod_glium::Renderer::new(&display).unwrap();
     let mut overlay_renderer = conrod_glium::Renderer::new(&display).unwrap();
     let mut plane_renderer = PlaneRenderer::new(&display);
+    let mut loading_renderer = LoadingScreenRenderer::new(&display);
 
     let mut last_time = std::time::Instant::now();
     let mut frame_time_ms = 0.0;
@@ -122,30 +130,45 @@ pub fn run_app() {
     let airports_bin = include_bytes!("../assets/data/airports.bin");
     let airports = airports_from_bytes(airports_bin).expect("Failed to load airports");
 
-    let mut should_update_ui = true;
     let mut viewer = map::TileView::new(29.18796, -81.04923, 8.0, 1080.0 / 2.0);
     let mut last_cursor_pos: Option<DVec2> = None;
     let mut left_pressed = false;
+    // Set to true if last frame the mouse was clicked
+    let mut left_last_pressed = false;
+    // Set to true if the mouse was dragged (clicked and moved)
+    let mut was_mouse_dragged = false;
 
     let mut weather_enabled = false;
     let mut debug_enabled = false;
 
     let mut filter_enabled: bool = false;
     let mut airport_enabled: bool = true;
-    let mut selected_airline = Airline::All;
+    let mut selected_airline = BasicAirline::All;
 
     let mut last_fps_print = Instant::now();
     let mut frame_counter = 0;
     let mut frame_times: Option<(Vec<f64>, Instant)> = None;
 
+    let mut loading = true;
+
     overlay_ids
         .filer_button
         .resize(4, &mut overlay_ui.widget_id_generator());
+
+    //Detects everytime the cursor is above a plane
+    let mut selected_plane: Option<SelectedPlane> = None;
+    //Detects everytime a plane is clicked
+    let mut clicked_plane: Option<SelectedPlane> = None;
+    //Holds the plane size
+    let mut olds_plane_size = 0.0;
+    //Shows the clicked details when plane clicked
+    let mut show_details = false;
 
     event_loop.run(move |event, _, control_flow| {
         use glium::glutin::event::{
             ElementState, Event, MouseButton, MouseScrollDelta, VirtualKeyCode, WindowEvent,
         };
+
         // Break from the loop upon `Escape` or closed window.
         if let Event::WindowEvent { event, .. } = &event {
             match event {
@@ -176,11 +199,21 @@ pub fn run_app() {
                         }
                     }
 
+                    if left_pressed {
+                        was_mouse_dragged = true;
+                    }
+
                     last_cursor_pos = Some(position);
                 }
                 WindowEvent::MouseInput { button, state, .. } => {
                     if matches!(button, MouseButton::Left) {
                         left_pressed = matches!(state, ElementState::Pressed);
+
+                        if left_pressed {
+                            was_mouse_dragged = false;
+                        } else if !was_mouse_dragged && selected_plane.is_none() {
+                            clicked_plane = None;
+                        }
                     }
                 }
                 _ => {}
@@ -191,124 +224,126 @@ pub fn run_app() {
         if let Some(event) = support::convert_event(&event, display.gl_window().window()) {
             map_ui.handle_event(event.clone());
             overlay_ui.handle_event(event);
-            should_update_ui = true;
         }
 
         match &event {
             glium::glutin::event::Event::MainEventsCleared => {
-                if should_update_ui {
-                    // should_update_ui = false;
+                // This is only set to true for the exact *first* frame that the mouse is clicked
+                let left_just_pressed = left_pressed && !left_last_pressed;
+                left_last_pressed = left_pressed;
 
-                    let mut map_ui = map_ui.set_widgets();
-                    let map_ui = &mut map_ui;
-                    let mut overlay_ui = overlay_ui.set_widgets();
-                    let overlay_ui = &mut overlay_ui;
+                let mut map_ui = map_ui.set_widgets();
+                let map_ui = &mut map_ui;
+                let mut overlay_ui = overlay_ui.set_widgets();
+                let overlay_ui = &mut overlay_ui;
 
+                overlay_ids
+                    .filer_button
+                    .resize(6, &mut overlay_ui.widget_id_generator());
+
+                //========== Draw Map ==========
+                {
+                    let map_state = map_renderer::MapRendererState {
+                        tile_cache: &mut pipelines,
+                        view: &viewer,
+                        display: &display,
+                        image_map: &mut image_map,
+                        ids: &mut map_ids,
+                        weather_enabled,
+                    };
+                    map_renderer::draw(map_state, map_ui, b612_map);
+                }
+
+                //========== Draw Airports ==========
+                if airport_enabled {
+                    airports::airport_renderer::draw(
+                        &airports,
+                        &viewer,
+                        &display,
+                        &mut map_ids,
+                        airport_id,
+                        map_ui,
+                    );
+                }
+
+                //========== Draw Debug Data ==========
+
+                let perf_data = crate::take_profile_data();
+
+                if debug_enabled {
+                    let _scope_debug_view = crate::profile_scope("Render Debug Information");
+                    let mut perf_data: Vec<_> = perf_data.into_iter().collect();
+                    perf_data.sort_unstable_by(|a, b| a.0.cmp(b.0));
+
+                    //========== Draw Debug Text ==========
+                    let map_data = {
+                        let mut guard = MAP_PERF_DATA.lock();
+                        guard.snapshot()
+                    };
+
+                    let debug_lines = 4 + map_data.backend_request_secs.len() + perf_data.len();
+
+                    let mut i = 0;
+                    let mut buf: util::StringFormatter<512> = util::StringFormatter::new();
                     overlay_ids
-                        .filer_button
-                        .resize(6, &mut overlay_ui.widget_id_generator());
+                        .debug_menu
+                        .resize(debug_lines, &mut overlay_ui.widget_id_generator());
 
-                    //========== Draw Map ==========
-                    {
-                        let map_state = map_renderer::MapRendererState {
-                            tile_cache: &mut pipelines,
-                            view: &viewer,
-                            display: &display,
-                            image_map: &mut image_map,
-                            ids: &mut map_ids,
-                            weather_enabled,
-                        };
-                        map_renderer::draw(map_state, map_ui, b612_map);
+                    let mut draw_text = |args: std::fmt::Arguments<'_>| {
+                        buf.clear();
+                        buf.write_fmt(args).unwrap();
+                        let gui_text = widget::Text::new(buf.as_str())
+                            .color(conrod_core::color::WHITE)
+                            .left_justify()
+                            .font_size(8)
+                            .font_id(b612_overlay);
+
+                        let width = gui_text.get_w(overlay_ui).unwrap();
+                        let x = -overlay_ui.win_w / 2.0 + width / 2.0 + 4.0;
+                        let y = overlay_ui.win_h / 2.0 - 8.0 - i as f64 * 11.0;
+                        gui_text
+                            .x_y(x, y)
+                            .set(overlay_ids.debug_menu[i], overlay_ui);
+                        i += 1;
+                        assert!(i <= debug_lines);
+                    };
+
+                    draw_text(format_args!(
+                        "FT: {:.2}, FPS: {}",
+                        frame_time_ms,
+                        (1000.0 / frame_time_ms) as u32
+                    ));
+                    draw_text(format_args!(
+                        "Zoom: {}, Tiles: {}",
+                        map_data.zoom, map_data.tiles_rendered
+                    ));
+                    draw_text(format_args!(
+                        "Decode: {:.2}ms, Upload: {:.2}ms",
+                        map_data.tile_decode_time.as_secs_f64() * 1000.0,
+                        map_data.tile_upload_time.as_secs_f64() * 1000.0
+                    ));
+
+                    for (backend_name, time) in map_data.backend_request_secs {
+                        draw_text(format_args!("  {} {:?}", backend_name, time,));
                     }
-
-                    //========== Draw Airports ==========
-                    if airport_enabled {
-                        airports::airport_renderer::draw(
-                            &airports,
-                            &viewer,
-                            &display,
-                            &mut map_ids,
-                            airport_id,
-                            map_ui,
-                        );
-                    }
-
-                    //========== Draw Debug Data ==========
-
-                    let perf_data = crate::take_profile_data();
-
-                    if debug_enabled {
-                        let _scope_debug_view = crate::profile_scope("Render Debug Information");
-                        let mut perf_data: Vec<_> = perf_data.into_iter().collect();
-                        perf_data.sort_unstable_by(|a, b| a.0.cmp(b.0));
-
-                        //========== Draw Debug Text ==========
-                        let map_data = {
-                            let mut guard = MAP_PERF_DATA.lock();
-                            guard.snapshot()
+                    for (name, data) in perf_data {
+                        let samples = data.get_samples();
+                        if samples.len() == 1 {
+                            draw_text(format_args!("{}: {:?}", name, samples[0]));
+                        } else {
+                            let avg: Duration =
+                                samples.iter().sum::<Duration>() / samples.len() as u32;
+                            draw_text(format_args!(
+                                "{}: {} times, {:?} avg",
+                                name,
+                                samples.len(),
+                                avg
+                            ));
                         };
-
-                        let debug_lines = 4 + map_data.backend_request_secs.len() + perf_data.len();
-
-                        let mut i = 0;
-                        let mut buf: util::StringFormatter<512> = util::StringFormatter::new();
-                        overlay_ids
-                            .debug_menu
-                            .resize(debug_lines, &mut overlay_ui.widget_id_generator());
-
-                        let mut draw_text = |args: std::fmt::Arguments<'_>| {
-                            buf.clear();
-                            buf.write_fmt(args).unwrap();
-                            let gui_text = widget::Text::new(buf.as_str())
-                                .color(conrod_core::color::WHITE)
-                                .left_justify()
-                                .font_size(8)
-                                .font_id(b612_overlay);
-
-                            let width = gui_text.get_w(overlay_ui).unwrap();
-                            let x = -overlay_ui.win_w / 2.0 + width / 2.0 + 4.0;
-                            let y = overlay_ui.win_h / 2.0 - 8.0 - i as f64 * 11.0;
-                            gui_text
-                                .x_y(x, y)
-                                .set(overlay_ids.debug_menu[i], overlay_ui);
-                            i += 1;
-                            assert!(i <= debug_lines);
-                        };
-
-                        draw_text(format_args!(
-                            "FT: {:.2}, FPS: {}",
-                            frame_time_ms,
-                            (1000.0 / frame_time_ms) as u32
-                        ));
-                        draw_text(format_args!(
-                            "Zoom: {}, Tiles: {}",
-                            map_data.zoom, map_data.tiles_rendered
-                        ));
-                        draw_text(format_args!(
-                            "Decode: {:.2}ms, Upload: {:.2}ms",
-                            map_data.tile_decode_time.as_secs_f64() * 1000.0,
-                            map_data.tile_upload_time.as_secs_f64() * 1000.0
-                        ));
-
-                        for (backend_name, time) in map_data.backend_request_secs {
-                            draw_text(format_args!("  {} {:?}", backend_name, time,));
-                        }
-                        for (name, data) in perf_data {
-                            let samples = data.get_samples();
-                            if samples.len() == 1 {
-                                draw_text(format_args!("{}: {:?}", name, samples[0]));
-                            } else {
-                                let avg: Duration =
-                                    samples.iter().sum::<Duration>() / samples.len() as u32;
-                                draw_text(format_args!(
-                                    "{}: {} times, {:?} avg",
-                                    name,
-                                    samples.len(),
-                                    avg
-                                ));
-                            };
-                        }
                     }
+                }
+
+                if !loading {
                     //========== Draw Buttons ==========
                     let scope_render_buttons = crate::profile_scope("Render Buttons");
 
@@ -366,7 +401,7 @@ pub fn run_app() {
                             widget_x_position - 130.0,
                             widget_y_position,
                         ) {
-                            selected_airline = Airline::American;
+                            selected_airline = BasicAirline::American;
                         }
                         //========== Draw Spirit Filter ==========
                         if ui_filter::draw(
@@ -376,7 +411,7 @@ pub fn run_app() {
                             widget_x_position - 130.0,
                             widget_y_position - 40.0,
                         ) {
-                            selected_airline = Airline::Spirit;
+                            selected_airline = BasicAirline::Spirit;
                         }
                         //========== Draw SouthWest Filter ==========
                         if ui_filter::draw(
@@ -386,7 +421,7 @@ pub fn run_app() {
                             widget_x_position - 130.0,
                             widget_y_position - 80.0,
                         ) {
-                            selected_airline = Airline::Southwest;
+                            selected_airline = BasicAirline::Southwest;
                         }
                         //========== Draw United Filter ==========
                         if ui_filter::draw(
@@ -396,7 +431,7 @@ pub fn run_app() {
                             widget_x_position - 130.0,
                             widget_y_position - 120.0,
                         ) {
-                            selected_airline = Airline::United
+                            selected_airline = BasicAirline::United
                         }
                         //========== Draw Other Filter ==========
                         if ui_filter::draw(
@@ -406,7 +441,7 @@ pub fn run_app() {
                             widget_x_position - 130.0,
                             widget_y_position - 160.0,
                         ) {
-                            selected_airline = Airline::Other
+                            selected_airline = BasicAirline::Other
                         }
                         //========== Draw All Filter ==========
                         if ui_filter::draw(
@@ -416,7 +451,7 @@ pub fn run_app() {
                             widget_x_position - 130.0,
                             widget_y_position - 200.0,
                         ) {
-                            selected_airline = Airline::All
+                            selected_airline = BasicAirline::All
                         }
                     }
 
@@ -447,31 +482,147 @@ pub fn run_app() {
                     }
 
                     scope_render_buttons.end();
-
-                    frame_counter += 1;
-                    let now = Instant::now();
-                    if now - last_fps_print >= Duration::from_secs(1) {
-                        let _ = frame_counter;
-                        //println!("FPS: {}", frame_counter);
-                        last_fps_print = now;
-                        frame_counter = 0;
-                    }
-
-                    //Time calculations
-                    let now = std::time::Instant::now();
-                    frame_time_ms = (now - last_time).as_nanos() as f64 / 1_000_000.0;
-                    if let Some((vec, _)) = &mut frame_times {
-                        vec.push(frame_time_ms);
-                    }
-                    last_time = now;
-
-                    display.gl_window().window().request_redraw();
+                } else {
+                    // Render the loading screen
+                    widget::Rectangle::fill([overlay_ui.win_w, overlay_ui.win_h])
+                        .color(Color::Rgba(0.2, 0.2, 0.2, 1.0))
+                        .top_left()
+                        .set(overlay_ids.loading_background, overlay_ui);
                 }
+
+                frame_counter += 1;
+                let now = Instant::now();
+                if now - last_fps_print >= Duration::from_secs(1) {
+                    let _ = frame_counter;
+                    //println!("FPS: {}", frame_counter);
+                    last_fps_print = now;
+                    frame_counter = 0;
+                }
+
+                //Display text details of planes
+                if left_just_pressed && selected_plane.is_some() {
+                    clicked_plane = selected_plane.clone();
+                    show_details = true;
+                }
+
+                if let Some(hover_plane) = &selected_plane {
+                    //Stores plane airline
+                    let airline = &hover_plane.plane.airline;
+                    let plane = &hover_plane.plane;
+                    let plane_type = hover_plane.plane.plane_type;
+
+                    //Where to draw the detail lines
+                    let detail_lines = 5;
+                    let mut i = 0;
+                    let mut buf: util::StringFormatter<512> = util::StringFormatter::new();
+                    overlay_ids
+                        .hovering_plane_details
+                        .resize(detail_lines, &mut overlay_ui.widget_id_generator());
+
+                    //Draw text function
+                    let mut draw_text = |args: std::fmt::Arguments<'_>| {
+                        buf.clear();
+                        buf.write_fmt(args).unwrap();
+                        let plane_text = widget::Text::new(buf.as_str())
+                            .color(conrod_core::color::WHITE)
+                            .left_justify()
+                            .font_size(10)
+                            .font_id(b612_overlay);
+
+                        //let left_side_text = widget::Text::new(buf.as_str())
+                        //    .color(conrod_core::color::WHITE)
+                        //    .left_justify()
+                        //    .font_size(20)
+                        //    .font_id(b612_overlay);
+
+                        let size = hover_plane.size as f64 / 2.0;
+                        let next_to_planex = hover_plane.location.x + 70.0 + size;
+                        let next_to_planey = hover_plane.location.y - 8.0 - i as f64 * 11.0;
+
+                        //let width = left_side_text.get_w(overlay_ui).unwrap();
+
+                        //let left_side_screenx = -overlay_ui.win_w / 2.0 + width / 2.0;
+                        //let left_side_screeny = 0.0 - i as f64 * 20.0;
+
+                        plane_text
+                            .x_y(next_to_planex, next_to_planey)
+                            .set(overlay_ids.hovering_plane_details[i], overlay_ui);
+                        i += 1;
+                    };
+
+                    //Draw details next to planes
+                    draw_text(format_args!("Airline: {}", airline.to_str()));
+                    draw_text(format_args!("Plane Type: {}", plane_type.to_str()));
+                    draw_text(format_args!("CallSign: {}", plane.callsign));
+                    draw_text(format_args!("Lat: {}", plane.latitude));
+                    draw_text(format_args!("Long: {}", plane.longitude));
+                }
+
+                if show_details {
+                    if let Some(clicked_plane) = &clicked_plane {
+                        //Stores plane airline
+                        let airline = &clicked_plane.plane.airline;
+                        let plane = &clicked_plane.plane;
+                        let plane_type = clicked_plane.plane.plane_type;
+
+                        //Where to draw the detail lines
+                        let detail_lines = 5;
+                        let mut i = 0;
+                        let mut buf: util::StringFormatter<512> = util::StringFormatter::new();
+                        overlay_ids
+                            .left_screen_details
+                            .resize(detail_lines, &mut overlay_ui.widget_id_generator());
+
+                        //Draw text function
+                        let mut draw_text = |args: std::fmt::Arguments<'_>| {
+                            buf.clear();
+                            buf.write_fmt(args).unwrap();
+                            let plane_text = widget::Text::new(buf.as_str())
+                                .color(conrod_core::color::WHITE)
+                                .left_justify()
+                                .font_size(20)
+                                .font_id(b612_overlay);
+
+                            //let left_side_text = widget::Text::new(buf.as_str())
+                            //    .color(conrod_core::color::WHITE)
+                            //    .left_justify()
+                            //    .font_size(20)
+                            //    .font_id(b612_overlay);
+
+                            olds_plane_size = plane_text.get_w(overlay_ui).unwrap();
+                            let width = olds_plane_size;
+
+                            let left_side_screenx = -overlay_ui.win_w / 2.0 + width / 2.0;
+                            let left_side_screeny = 0.0 - i as f64 * 20.0;
+
+                            plane_text
+                                .x_y(left_side_screenx, left_side_screeny)
+                                .set(overlay_ids.left_screen_details[i], overlay_ui);
+                            i += 1;
+                        };
+
+                        //Draw details next to planes
+                        draw_text(format_args!("Airline: {}", airline.to_str()));
+                        draw_text(format_args!("Plane Type: {}", plane_type.to_str()));
+                        draw_text(format_args!("CallSign: {}", plane.callsign));
+                        draw_text(format_args!("Lat: {}", plane.latitude));
+                        draw_text(format_args!("Long: {}", plane.longitude));
+                    }
+                }
+
+                // Time calculations
+                let now = std::time::Instant::now();
+                frame_time_ms = (now - last_time).as_nanos() as f64 / 1_000_000.0;
+                if let Some((vec, _)) = &mut frame_times {
+                    vec.push(frame_time_ms);
+                }
+                last_time = now;
+
+                display.gl_window().window().request_redraw();
             }
             glium::glutin::event::Event::RedrawRequested(_) => {
-                //render and swap buffers
+                // Render and swap buffers
                 let map_primitives = map_ui.draw();
-                let overlay_primitives = overlay_ui.draw();
 
                 let mut target = display.draw();
                 target.clear_color(0.21, 0.32, 0.4, 1.0);
@@ -483,20 +634,32 @@ pub fn run_app() {
 
                 //=========Draw Planes============
 
-                plane_renderer.draw(
+                let plane_data = plane_renderer.draw(
                     &display,
                     &mut target,
                     &mut plane_requester,
                     &viewer,
                     selected_airline,
+                    &mut clicked_plane,
+                    last_cursor_pos,
                 );
+
+                loading = !plane_data.planes_loaded;
+                selected_plane = plane_data.plane_selection;
 
                 //=========Draw Overlay===========
 
+                let overlay_primitives = overlay_ui.draw();
                 overlay_renderer.fill(&display, overlay_primitives, &image_map);
                 overlay_renderer
                     .draw(&display, &mut target, &image_map)
                     .unwrap();
+
+                if loading {
+                    //=========Draw Loading Logo===========
+
+                    loading_renderer.draw(&display, &mut target, frame_time_ms);
+                }
 
                 target.finish().unwrap();
             }
