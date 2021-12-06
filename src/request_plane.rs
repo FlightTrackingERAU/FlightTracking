@@ -3,7 +3,7 @@ use tokio::{runtime::Runtime, time::Instant};
 
 use opensky_api::errors::Error;
 
-use crate::{Airline, PlaneType};
+use crate::{Airline, BasicAirline, DynamicAirline, PlaneType};
 
 /// The body of a Plane
 ///
@@ -54,11 +54,11 @@ impl PlaneBody {
             plane_type,
         }
     }
-    pub fn empty_body() -> Self {
+    pub fn empty_commercial(airline: Airline) -> Self {
         PlaneBody {
             planes: Vec::new(),
-            airline: Airline::Other,
-            plane_type: PlaneType::Unknown,
+            airline,
+            plane_type: PlaneType::Commercial,
         }
     }
 }
@@ -135,11 +135,15 @@ async fn request_plane_data() -> Result<Vec<PlaneBody>, Error> {
     let state_request = open_sky.get_states();
     let mut list_of_planes: Vec<PlaneBody> = Vec::new();
 
-    let mut spirit_planes: PlaneBody = PlaneBody::empty_body();
-    let mut american_al_planes: PlaneBody = PlaneBody::empty_body();
-    let mut southwest_planes: PlaneBody = PlaneBody::empty_body();
-    let mut united_al_planes: PlaneBody = PlaneBody::empty_body();
-    let mut other_planes: PlaneBody = PlaneBody::empty_body();
+    let mut spirit_planes: PlaneBody = PlaneBody::empty_commercial(BasicAirline::Spirit.into());
+    let mut american_al_planes: PlaneBody =
+        PlaneBody::empty_commercial(BasicAirline::American.into());
+    let mut southwest_planes: PlaneBody =
+        PlaneBody::empty_commercial(BasicAirline::Southwest.into());
+    let mut united_al_planes: PlaneBody = PlaneBody::empty_commercial(BasicAirline::United.into());
+    let mut other_planes: PlaneBody = PlaneBody::empty_commercial(Airline::Unknown);
+
+    let dynamic_plane_types = get_dynamic_plane_types();
 
     let open_sky = state_request.send().await?;
     for state in open_sky.states {
@@ -150,59 +154,64 @@ async fn request_plane_data() -> Result<Vec<PlaneBody>, Error> {
         if !state.on_ground {
             if let Some(longitude) = longitude {
                 let latitude = latitude.unwrap();
+                let mut maybe_airline = None;
+                let mut maybe_callsign = None;
+                let mut maybe_plane_type = None;
 
-                let (airline, callsign, plane_type) = if let Some(airline) = state.callsign {
-                    if airline.len() > 3 {
-                        match &airline[0..3] {
-                            "NKS" => (Airline::Spirit, airline, PlaneType::Commercial),
-                            "AAL" => (Airline::American, airline, PlaneType::Commercial),
-                            "SWA" => (Airline::Southwest, airline, PlaneType::Commercial),
-                            "UAL" => (Airline::United, airline, PlaneType::Commercial),
-                            "DAL" => (Airline::Delta, airline, PlaneType::Commercial),
-                            _ => (Airline::Other, airline, PlaneType::Unknown),
+                if let Some(callsign) = &state.callsign {
+                    maybe_callsign = Some(callsign.clone());
+                    if callsign.len() > 3 {
+                        let callsign_header = &callsign[0..3];
+                        match callsign_header {
+                            "NKS" => maybe_airline = Some(BasicAirline::Spirit.into()),
+                            "AAL" => maybe_airline = Some(BasicAirline::American.into()),
+                            "SWA" => maybe_airline = Some(BasicAirline::Southwest.into()),
+                            "UAL" => maybe_airline = Some(BasicAirline::United.into()),
+                            "DAL" => maybe_airline = Some(BasicAirline::Delta.into()),
+                            _ => {
+                                //Try to match dynamic airlines
+                                for (dyn_airline, dyn_plane_type) in &dynamic_plane_types {
+                                    println!(
+                                        "Matched callsign: {} - {}",
+                                        callsign_header, callsign
+                                    );
+                                    if dyn_airline.callsign == callsign_header {
+                                        maybe_airline = Some(Airline::Dynamic(dyn_airline.clone()));
+                                        maybe_plane_type = Some(*dyn_plane_type);
+                                    }
+                                }
+                            }
                         }
-                    } else {
-                        (Airline::Other, airline, PlaneType::Unknown)
                     }
-                } else {
-                    (Airline::Other, String::from("Unknown"), PlaneType::Unknown)
-                };
+                }
 
+                let plane_type = match (maybe_plane_type, &maybe_airline) {
+                    (Some(plane_type), _) => plane_type,
+                    (_, Some(Airline::Basic(_))) => PlaneType::Commercial,
+                    _ => PlaneType::Unknown,
+                };
                 let plane = Plane {
                     longitude,
                     latitude,
                     track,
-                    airline,
+                    airline: maybe_airline.clone().unwrap_or(Airline::Unknown),
+                    //Default to commercial because we only set it in the case of spirit, american etc.
                     plane_type,
-                    callsign,
+                    callsign: maybe_callsign.unwrap_or("Unknown".to_owned()),
                 };
 
-                match airline {
-                    Airline::Spirit => {
-                        spirit_planes.planes.push(plane);
-                        spirit_planes.airline = airline;
-                        spirit_planes.plane_type = plane_type;
+                match maybe_airline {
+                    Some(Airline::Basic(BasicAirline::Spirit)) => spirit_planes.planes.push(plane),
+                    Some(Airline::Basic(BasicAirline::American)) => {
+                        american_al_planes.planes.push(plane)
                     }
-                    Airline::American => {
-                        american_al_planes.planes.push(plane);
-                        american_al_planes.airline = airline;
-                        american_al_planes.plane_type = plane_type;
+                    Some(Airline::Basic(BasicAirline::Southwest)) => {
+                        southwest_planes.planes.push(plane)
                     }
-                    Airline::Southwest => {
-                        southwest_planes.planes.push(plane);
-                        southwest_planes.airline = airline;
-                        southwest_planes.plane_type = plane_type;
+                    Some(Airline::Basic(BasicAirline::United)) => {
+                        united_al_planes.planes.push(plane)
                     }
-                    Airline::United => {
-                        united_al_planes.planes.push(plane);
-                        united_al_planes.airline = airline;
-                        united_al_planes.plane_type = plane_type;
-                    }
-                    _ => {
-                        other_planes.planes.push(plane);
-                        other_planes.airline = airline;
-                        other_planes.plane_type = plane_type;
-                    }
+                    _ => other_planes.planes.push(plane),
                 }
             }
         }
@@ -215,4 +224,70 @@ async fn request_plane_data() -> Result<Vec<PlaneBody>, Error> {
     list_of_planes.push(other_planes);
 
     Ok(list_of_planes)
+}
+
+fn get_dynamic_plane_types() -> Vec<(DynamicAirline, PlaneType)> {
+    let mut result = Vec::new();
+
+    let data = r#"
+ATN - Air Transport International - cargo
+ASA - Alaska Airlines - airline
+AAY - Allegiant Air - airline
+AIP - Alpine Air Express - cargo
+AAL - American Airlines - airline
+AMF - Ameriflight - airline
+AJT - Amerijet International - airline
+GTI - Atlas Air - airline
+DAL - Delta Air Lines - airline
+ASQ - ExpressJet - cargo
+FDX - FedEx Express - cargo
+FFT - Frontier Airlines - airline
+HAL - Hawaiian Airlines - airline
+SWQ - iAero Airways - airline
+JBU - JetBlue - airline
+SKW - SkyWest Airlines - airline
+SOO - Southern Air - airline
+SWA - Southwest Airlines - airline
+NKS - Spirit Airlines - airline
+UAL - United Airlines - airline
+UPS - UPS Airlines - airline
+CAL - China Airlines - airline
+BAW - British Airways - airline
+DLH - Lufthansa - airline
+ACA - Air Canada - airline
+VRD - Virgin America - airline
+VIR - Virgin Atlantic - airline
+AFR - Air France - airline
+EGF - American Eagle Airlines - airline
+IBK - Norwegian Air International - airline
+AMX - Aeromexico - airline
+ERU - Embry_Riddle - trainer
+"#;
+    for line in data.lines() {
+        if line.is_empty() {
+            continue;
+        }
+        let mut split = line.split('-');
+        let callsign = split.next().unwrap().trim();
+
+        //Replace the dash in Embry-Riddle _after_we split by `-`
+        let airline_name = split.next().unwrap().trim().replace('_', "-");
+        let type_str = split.next().unwrap().trim();
+        let plane_type = match type_str {
+            "airline" => PlaneType::Commercial,
+            "cargo" => PlaneType::Cargo,
+            "trainer" => PlaneType::Trainer,
+            s => unreachable!(s),
+        };
+
+        result.push((
+            DynamicAirline {
+                callsign: callsign.to_owned(),
+                name: airline_name.to_owned(),
+            },
+            plane_type,
+        ));
+    }
+
+    result
 }

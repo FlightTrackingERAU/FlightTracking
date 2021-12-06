@@ -140,7 +140,7 @@ pub fn run_app() {
 
     let mut filter_enabled: bool = false;
     let mut airport_enabled: bool = true;
-    let mut selected_airline = Airline::All;
+    let mut selected_airline = BasicAirline::All;
 
     let mut last_fps_print = Instant::now();
     let mut frame_counter = 0;
@@ -398,7 +398,7 @@ pub fn run_app() {
                                 widget_x_position - 130.0,
                                 widget_y_position,
                             ) {
-                                selected_airline = Airline::American;
+                                selected_airline = BasicAirline::American;
                             }
                             //========== Draw Spirit Filter ==========
                             if ui_filter::draw(
@@ -408,7 +408,7 @@ pub fn run_app() {
                                 widget_x_position - 130.0,
                                 widget_y_position - 40.0,
                             ) {
-                                selected_airline = Airline::Spirit;
+                                selected_airline = BasicAirline::Spirit;
                             }
                             //========== Draw SouthWest Filter ==========
                             if ui_filter::draw(
@@ -418,7 +418,7 @@ pub fn run_app() {
                                 widget_x_position - 130.0,
                                 widget_y_position - 80.0,
                             ) {
-                                selected_airline = Airline::Southwest;
+                                selected_airline = BasicAirline::Southwest;
                             }
                             //========== Draw United Filter ==========
                             if ui_filter::draw(
@@ -428,7 +428,7 @@ pub fn run_app() {
                                 widget_x_position - 130.0,
                                 widget_y_position - 120.0,
                             ) {
-                                selected_airline = Airline::United
+                                selected_airline = BasicAirline::United
                             }
                             //========== Draw Other Filter ==========
                             if ui_filter::draw(
@@ -438,7 +438,7 @@ pub fn run_app() {
                                 widget_x_position - 130.0,
                                 widget_y_position - 160.0,
                             ) {
-                                selected_airline = Airline::Other
+                                selected_airline = BasicAirline::Other
                             }
                             //========== Draw All Filter ==========
                             if ui_filter::draw(
@@ -448,7 +448,7 @@ pub fn run_app() {
                                 widget_x_position - 130.0,
                                 widget_y_position - 200.0,
                             ) {
-                                selected_airline = Airline::All
+                                selected_airline = BasicAirline::All
                             }
                         }
 
@@ -510,7 +510,7 @@ pub fn run_app() {
 
                     if let Some(hover_plane) = &selected_plane {
                         //Stores plane airline
-                        let airline = hover_plane.plane.airline;
+                        let airline = &hover_plane.plane.airline;
                         let plane = &hover_plane.plane;
                         let plane_type = hover_plane.plane.plane_type;
 
@@ -564,7 +564,7 @@ pub fn run_app() {
                     if show_details {
                         if let Some(clicked_plane) = &clicked_plane {
                             //Stores plane airline
-                            let airline = clicked_plane.plane.airline;
+                            let airline = &clicked_plane.plane.airline;
                             let plane = &clicked_plane.plane;
                             let plane_type = clicked_plane.plane.plane_type;
 
