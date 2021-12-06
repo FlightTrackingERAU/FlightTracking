@@ -401,7 +401,7 @@ pub fn run_app() {
                             widget_x_position - 130.0,
                             widget_y_position,
                         ) {
-                            selected_airline = Airline::American;
+                            selected_airline = BasicAirline::American;
                         }
                         //========== Draw Spirit Filter ==========
                         if ui_filter::draw(
@@ -411,7 +411,7 @@ pub fn run_app() {
                             widget_x_position - 130.0,
                             widget_y_position - 40.0,
                         ) {
-                            selected_airline = Airline::Spirit;
+                            selected_airline = BasicAirline::Spirit;
                         }
                         //========== Draw SouthWest Filter ==========
                         if ui_filter::draw(
@@ -421,7 +421,7 @@ pub fn run_app() {
                             widget_x_position - 130.0,
                             widget_y_position - 80.0,
                         ) {
-                            selected_airline = Airline::Southwest;
+                            selected_airline = BasicAirline::Southwest;
                         }
                         //========== Draw United Filter ==========
                         if ui_filter::draw(
@@ -431,70 +431,17 @@ pub fn run_app() {
                             widget_x_position - 130.0,
                             widget_y_position - 120.0,
                         ) {
-                            selected_airline = Airline::United
+                            selected_airline = BasicAirline::United
                         }
-                        //========== Filtering buttons enabling/disabling ==========
-                        if filter_enabled {
-                            //========== Draw American Airlines Filter ==========
-                            if ui_filter::draw(
-                                overlay_ids.filer_button[0],
-                                overlay_ui,
-                                String::from("American Airlines"),
-                                widget_x_position - 130.0,
-                                widget_y_position,
-                            ) {
-                                selected_airline = BasicAirline::American;
-                            }
-                            //========== Draw Spirit Filter ==========
-                            if ui_filter::draw(
-                                overlay_ids.filer_button[1],
-                                overlay_ui,
-                                String::from("Spirit"),
-                                widget_x_position - 130.0,
-                                widget_y_position - 40.0,
-                            ) {
-                                selected_airline = BasicAirline::Spirit;
-                            }
-                            //========== Draw SouthWest Filter ==========
-                            if ui_filter::draw(
-                                overlay_ids.filer_button[2],
-                                overlay_ui,
-                                String::from("Southwest"),
-                                widget_x_position - 130.0,
-                                widget_y_position - 80.0,
-                            ) {
-                                selected_airline = BasicAirline::Southwest;
-                            }
-                            //========== Draw United Filter ==========
-                            if ui_filter::draw(
-                                overlay_ids.filer_button[3],
-                                overlay_ui,
-                                String::from("United"),
-                                widget_x_position - 130.0,
-                                widget_y_position - 120.0,
-                            ) {
-                                selected_airline = BasicAirline::United
-                            }
-                            //========== Draw Other Filter ==========
-                            if ui_filter::draw(
-                                overlay_ids.filer_button[4],
-                                overlay_ui,
-                                String::from("Other Airlines"),
-                                widget_x_position - 130.0,
-                                widget_y_position - 160.0,
-                            ) {
-                                selected_airline = BasicAirline::Other
-                            }
-                            //========== Draw All Filter ==========
-                            if ui_filter::draw(
-                                overlay_ids.filer_button[5],
-                                overlay_ui,
-                                String::from("All"),
-                                widget_x_position - 130.0,
-                                widget_y_position - 200.0,
-                            ) {
-                                selected_airline = BasicAirline::All
-                            }
+                        //========== Draw Other Filter ==========
+                        if ui_filter::draw(
+                            overlay_ids.filer_button[4],
+                            overlay_ui,
+                            String::from("Other Airlines"),
+                            widget_x_position - 130.0,
+                            widget_y_position - 160.0,
+                        ) {
+                            selected_airline = BasicAirline::Other
                         }
                         //========== Draw All Filter ==========
                         if ui_filter::draw(
@@ -504,7 +451,7 @@ pub fn run_app() {
                             widget_x_position - 130.0,
                             widget_y_position - 200.0,
                         ) {
-                            selected_airline = Airline::All
+                            selected_airline = BasicAirline::All
                         }
                     }
 
@@ -560,7 +507,7 @@ pub fn run_app() {
 
                 if let Some(hover_plane) = &selected_plane {
                     //Stores plane airline
-                    let airline = hover_plane.plane.airline;
+                    let airline = &hover_plane.plane.airline;
                     let plane = &hover_plane.plane;
                     let plane_type = hover_plane.plane.plane_type;
 
@@ -614,10 +561,9 @@ pub fn run_app() {
                 if show_details {
                     if let Some(clicked_plane) = &clicked_plane {
                         //Stores plane airline
-
-                        let airline = &hover_plane.plane.airline;
-                        let plane = &hover_plane.plane;
-                        let plane_type = hover_plane.plane.plane_type;
+                        let airline = &clicked_plane.plane.airline;
+                        let plane = &clicked_plane.plane;
+                        let plane_type = clicked_plane.plane.plane_type;
 
                         //Where to draw the detail lines
                         let detail_lines = 5;
@@ -664,67 +610,11 @@ pub fn run_app() {
                     }
                 }
 
-                    if show_details {
-                        if let Some(clicked_plane) = &clicked_plane {
-                            //Stores plane airline
-                            let airline = &clicked_plane.plane.airline;
-                            let plane = &clicked_plane.plane;
-                            let plane_type = clicked_plane.plane.plane_type;
-
-                            //Where to draw the detail lines
-                            let detail_lines = 5;
-                            let mut i = 0;
-                            let mut buf: util::StringFormatter<512> = util::StringFormatter::new();
-                            overlay_ids
-                                .left_screen_details
-                                .resize(detail_lines, &mut overlay_ui.widget_id_generator());
-
-                            //Draw text function
-                            let mut draw_text = |args: std::fmt::Arguments<'_>| {
-                                buf.clear();
-                                buf.write_fmt(args).unwrap();
-                                let plane_text = widget::Text::new(buf.as_str())
-                                    .color(conrod_core::color::WHITE)
-                                    .left_justify()
-                                    .font_size(20)
-                                    .font_id(b612_overlay);
-
-                                //let left_side_text = widget::Text::new(buf.as_str())
-                                //    .color(conrod_core::color::WHITE)
-                                //    .left_justify()
-                                //    .font_size(20)
-                                //    .font_id(b612_overlay);
-
-                                olds_plane_size = plane_text.get_w(overlay_ui).unwrap();
-                                let width = olds_plane_size;
-
-                                let left_side_screenx = -overlay_ui.win_w / 2.0 + width / 2.0;
-                                let left_side_screeny = 0.0 - i as f64 * 20.0;
-
-                                plane_text
-                                    .x_y(left_side_screenx, left_side_screeny)
-                                    .set(overlay_ids.left_screen_details[i], overlay_ui);
-                                i += 1;
-                            };
-
-                            //Draw details next to planes
-                            draw_text(format_args!("Airline: {}", airline.to_str()));
-                            draw_text(format_args!("Plane Type: {}", plane_type.to_str()));
-                            draw_text(format_args!("CallSign: {}", plane.callsign));
-                            draw_text(format_args!("Lat: {}", plane.latitude));
-                            draw_text(format_args!("Long: {}", plane.longitude));
-                        }
-                    }
-
-                    // Time calculations
-                    let now = std::time::Instant::now();
-                    frame_time_ms = (now - last_time).as_nanos() as f64 / 1_000_000.0;
-                    if let Some((vec, _)) = &mut frame_times {
-                        vec.push(frame_time_ms);
-                    }
-                    last_time = now;
-
-                    display.gl_window().window().request_redraw();
+                // Time calculations
+                let now = std::time::Instant::now();
+                frame_time_ms = (now - last_time).as_nanos() as f64 / 1_000_000.0;
+                if let Some((vec, _)) = &mut frame_times {
+                    vec.push(frame_time_ms);
                 }
                 last_time = now;
 
