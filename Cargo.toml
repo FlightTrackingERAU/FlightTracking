@@ -1,6 +1,6 @@
 [package]
 name = "flight_tracking_erau_se300"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 readme = "README.md"
 authors = ["Troy Neubauer <troyneubauer@gmail.com>", "Luke Newcomb <newcomb.luke@protonmail.com>", "Walter Hernandez <zhernandezwalter@gmail.com>", "Ricardo Iparraguirre <iparragr@my.erau.edu>"]
