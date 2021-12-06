@@ -29,7 +29,7 @@ impl SelectedPlane {
 
 #[derive(Clone)]
 pub struct LoadingStruct {
-    pub loading: bool,
+    pub planes_loaded: bool,
     pub plane_selection: Option<SelectedPlane>,
 }
 
@@ -44,7 +44,7 @@ impl PlaneType {
         match self {
             PlaneType::Commercial => "Commercial",
             PlaneType::Cargo => "Cargo",
-            PlaneType::Unknown => "Unkown",
+            PlaneType::Unknown => "Unknown",
         }
     }
 }
@@ -323,7 +323,7 @@ impl<'a> PlaneRenderer<'a> {
             .unwrap();
 
         LoadingStruct {
-            loading: planes_loaded,
+            planes_loaded,
             plane_selection: selected_plane
                 .map(|plane| SelectedPlane::new(plane, plane_position, size_of_plane)),
         }
