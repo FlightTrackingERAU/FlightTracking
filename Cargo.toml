@@ -8,6 +8,8 @@ repository = "https://github.com/TroyNeubauer/FlightTracking"
 documentation = "https://docs.rs/flight_tracking_erau_se300"
 description = "An app that displays the path of planes through the country of United States"
 license = "GPL-3.0"
+exclude = ["/examples"]
+
 
 [dependencies]
 conrod_core = "0.76"
